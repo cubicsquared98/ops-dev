@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 6508262759203085850}
   - component: {fileID: 4134905192829941712}
   m_Layer: 0
-  m_Name: ops_avatar_base_component
+  m_Name: ops_avatar_base_component-TOGGLE-THIS-WITH-EACH-OPS-COMPONENT
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
