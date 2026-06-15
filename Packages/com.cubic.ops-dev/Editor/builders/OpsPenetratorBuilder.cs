@@ -10,13 +10,13 @@ using VRC.SDK3.Avatars.Components;
 using ops_dev.Components;
 
 namespace ops_dev.Editor.Builders {
-    public class ops_penetrator_builder : IVRCSDKPreprocessAvatarCallback
+    public class OpsPenetratorBuilder : IVRCSDKPreprocessAvatarCallback
     {
         public int callbackOrder => -102;
 
         public bool OnPreprocessAvatar(GameObject avatarGameObject)
         {
-            ops_penetrator[] penetrators = avatarGameObject.GetComponentsInChildren<ops_penetrator>(true);
+            OpsPenetrator[] penetrators = avatarGameObject.GetComponentsInChildren<OpsPenetrator>(true);
             if (penetrators.Length == 0) return true;
 
             string folderPath = "Packages/com.cubic.ops-dev/Runtime/ops_generated/penetrator";
@@ -32,14 +32,14 @@ namespace ops_dev.Editor.Builders {
                 }
             }
             if(avatar_ID_Base == null){
-                Debug.LogError("[ops_penetrator_builder] Build Failed: Could not find an OpsIDWriter with Avatar ID space. This component must exist on the avatar to proceed.");
+                Debug.LogError("[OpsPenetratorBuilder] Build Failed: Could not find an OpsIDWriter with Avatar ID space. This component must exist on the avatar to proceed.");
                 return false;
             }
 
             // Dictionary to keep track of which mesh belongs to which penetrator for animation retargeting
-            Dictionary<ops_penetrator, GameObject[]> generatedMeshes = new Dictionary<ops_penetrator, GameObject[]>();
+            Dictionary<OpsPenetrator, GameObject[]> generatedMeshes = new Dictionary<OpsPenetrator, GameObject[]>();
 
-            foreach(ops_penetrator penetrator in penetrators){
+            foreach(OpsPenetrator penetrator in penetrators){
                 if (penetrator.opsPenetratorWriter == null) continue;
 
                 int hashSeed = Random.Range(0, int.MaxValue);
@@ -51,7 +51,7 @@ namespace ops_dev.Editor.Builders {
                 //ID writer check
                 OpsIDWriter new_ID_Writer = generatedMesh.GetComponent<OpsIDWriter>();
                 // if(new_ID_Writer == null){
-                //     Debug.LogError("[ops_penetrator_builder] No ID WRITER FOUND");
+                //     Debug.LogError("[OpsPenetratorBuilder] No ID WRITER FOUND");
                 // }
                 // else{
                 //     writers.Add(new_ID_Writer);
@@ -70,7 +70,7 @@ namespace ops_dev.Editor.Builders {
         }
 
 
-        public static GameObject CreateSkinnedTriangle(string savePath, Transform avatar_base_target, int hash_seed, int hash_seed_avi, ops_penetrator settings)
+        public static GameObject CreateSkinnedTriangle(string savePath, Transform avatar_base_target, int hash_seed, int hash_seed_avi, OpsPenetrator settings)
         {
             Transform parent = settings.gameObject.transform;
             float length = settings.length;
@@ -94,7 +94,7 @@ namespace ops_dev.Editor.Builders {
             }
 
             // Create the base GameObject
-            GameObject meshObj = new GameObject("Ops_PenetratorMesh");
+            GameObject meshObj = new GameObject("OpsPenetratorMesh");
             if (parent != null) meshObj.transform.SetParent(parent, false);
 
             // Inverse Scaling Logic - using mesh object as scale reference
@@ -116,7 +116,7 @@ namespace ops_dev.Editor.Builders {
                 sps_mat.SetInt("_OPS_HASH_SEED", hash_seed);
                 sps_mat.SetInt("_OPS_SKINNED_BONES_OFFSET", settings.starting_index);
                 sps_mat.SetInt("_OPS_SKINNED_BONES_ENABLED", settings.smr_bones.Count > 0 ? 1 : 0);
-                sps_mat.SetInt("_OPS_PENETRATOR_AVOID_ON_SELF_MASK", settings.avoidOnSelfChannel);
+                sps_mat.SetInt("_OpsPenetrator_AVOID_ON_SELF_MASK", settings.avoidOnSelfChannel);
                 sps_mat.SetInt("_OPS_ID_CHANNEL", settings.SelectedChannel);
                 sps_mat.SetInt("_OPS_FROT_MODE", settings.frot_mode ? 1 : 0);
             }
@@ -126,7 +126,7 @@ namespace ops_dev.Editor.Builders {
             // rootBone.transform.SetParent(meshObj.transform, false);
 
             //This places the data sending mesh into the correct position, it should be lined up from the plug to the penetrator tip
-            GameObject penetrator_base_bone = new GameObject("ops_penetrator_base");
+            GameObject penetrator_base_bone = new GameObject("OpsPenetrator_base");
             
             if (settings.ops_advanced_reparent_penetrator_data_mesh != null) penetrator_base_bone.transform.SetParent(settings.ops_advanced_reparent_penetrator_data_mesh, false);
             else if (sps_Plug_Component_Transform != null) penetrator_base_bone.transform.SetParent(sps_Plug_Component_Transform, false);
@@ -253,9 +253,9 @@ namespace ops_dev.Editor.Builders {
             mats[0].SetInt("_HASH_SEED_AVI_ID", hash_seed_avi);
             mats[0].SetInt("_ID", 0);
             mats[0].SetInt("_OVERRIDE_USE_ID", 0);
-            mats[0].SetColor("_OPS_PENETRATOR_GLOW_COLOR", settings.penetratorGlowColor);
-            mats[0].SetFloat("_OPS_PENETRATOR_EMISSION_STRENGTH", settings.emissionStrength);
-            mats[0].SetInt("_OPS_PENETRATOR_AVOID_ON_SELF_MASK", settings.avoidOnSelfChannel);
+            mats[0].SetColor("_OpsPenetrator_GLOW_COLOR", settings.penetratorGlowColor);
+            mats[0].SetFloat("_OpsPenetrator_EMISSION_STRENGTH", settings.emissionStrength);
+            mats[0].SetInt("_OpsPenetrator_AVOID_ON_SELF_MASK", settings.avoidOnSelfChannel);
             mats[0].SetInt("_OPS_ID_CHANNEL", settings.avoidOnSelfChannel);
             mats[0].SetInt("_OPS_SKINNED_BONES_OFFSET", settings.SelectedChannel);
             mats[0].SetInt("_OPS_SKINNED_BONES_ENABLED", settings.smr_bones.Count > 0 ? 1 : 0);
@@ -294,7 +294,7 @@ namespace ops_dev.Editor.Builders {
 
 
         //Search through avatar descriptor for animation controllers
-        private void RetargetAnimations(GameObject avatar, Dictionary<ops_penetrator, GameObject[]> generatedMeshes, string savePath)
+        private void RetargetAnimations(GameObject avatar, Dictionary<OpsPenetrator, GameObject[]> generatedMeshes, string savePath)
         {
             VRCAvatarDescriptor descriptor = avatar.GetComponent<VRCAvatarDescriptor>();
             if (descriptor == null) return;
@@ -338,7 +338,7 @@ namespace ops_dev.Editor.Builders {
             }
         }
 
-        private RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, GameObject avatar, Dictionary<ops_penetrator, GameObject[]> generatedMeshes, string savePath)
+        private RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, GameObject avatar, Dictionary<OpsPenetrator, GameObject[]> generatedMeshes, string savePath)
         {
 
 
@@ -346,7 +346,7 @@ namespace ops_dev.Editor.Builders {
             string oldAssetPath = AssetDatabase.GetAssetPath(originalController);
             if (string.IsNullOrEmpty(oldAssetPath))
             {
-                Debug.LogWarning($"[ops_penetrator_builder] Cannot duplicate controller {originalController.name} because it is not saved as an asset.");
+                Debug.LogWarning($"[OpsPenetratorBuilder] Cannot duplicate controller {originalController.name} because it is not saved as an asset.");
                 return originalController;
             }
 
@@ -354,14 +354,14 @@ namespace ops_dev.Editor.Builders {
             string newControllerPath = Path.Combine(savePath, originalController.name + "_OpsDuplicate_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".controller").Replace("\\", "/");
             if (!AssetDatabase.CopyAsset(oldAssetPath, newControllerPath))
             {
-                Debug.LogError($"[ops_penetrator_builder] Failed to copy Animator Controller from {oldAssetPath} to {newControllerPath}");
+                Debug.LogError($"[OpsPenetratorBuilder] Failed to copy Animator Controller from {oldAssetPath} to {newControllerPath}");
                 return originalController;
             }
 
             // Load the new duplicate controller
             AnimatorController duplicatedController = AssetDatabase.LoadAssetAtPath<AnimatorController>(newControllerPath);
             if (duplicatedController == null){
-                Debug.LogWarning("[ops_penetrator_builder] Failed to get duplicated controller");
+                Debug.LogWarning("[OpsPenetratorBuilder] Failed to get duplicated controller");
                 return originalController;
             }
 
@@ -383,7 +383,7 @@ namespace ops_dev.Editor.Builders {
 
             // If no clips were modified, we don't need to duplicate the controller
             if (clipReplacements.Count == 0){
-                //Debug.LogWarning($"[ops_penetrator_builder] No clip replacements found");
+                //Debug.LogWarning($"[OpsPenetratorBuilder] No clip replacements found");
                 return originalController;
             }
 
@@ -400,14 +400,14 @@ namespace ops_dev.Editor.Builders {
         }
 
         //Check and process each animation clip
-        private AnimationClip ProcessClip(AnimationClip originalClip, GameObject avatar, Dictionary<ops_penetrator, GameObject[]> generatedMeshes, string savePath)
+        private AnimationClip ProcessClip(AnimationClip originalClip, GameObject avatar, Dictionary<OpsPenetrator, GameObject[]> generatedMeshes, string savePath)
         {
             EditorCurveBinding[] bindings = AnimationUtility.GetCurveBindings(originalClip);
             bool clipNeedsModification = false;
 
             foreach (var binding in bindings)
             {
-                if (binding.type == typeof(ops_penetrator))
+                if (binding.type == typeof(OpsPenetrator))
                 {
                     clipNeedsModification = true;
                     break;
@@ -425,13 +425,13 @@ namespace ops_dev.Editor.Builders {
             bindings = AnimationUtility.GetCurveBindings(newClip);
             foreach (var binding in bindings)
             {
-                if (binding.type == typeof(ops_penetrator))
+                if (binding.type == typeof(OpsPenetrator))
                 {
                     Transform targetTransform = string.IsNullOrEmpty(binding.path) ? avatar.transform : avatar.transform.Find(binding.path);
                     
                     if (targetTransform != null)
                     {
-                        ops_penetrator targetPenetrator = targetTransform.GetComponent<ops_penetrator>();
+                        OpsPenetrator targetPenetrator = targetTransform.GetComponent<OpsPenetrator>();
                         if (targetPenetrator != null && generatedMeshes.ContainsKey(targetPenetrator))
                         {
                             GameObject[] generatedMeshs = generatedMeshes[targetPenetrator];
@@ -474,15 +474,15 @@ namespace ops_dev.Editor.Builders {
                 {
                     // Extract the suffix (".r") and append it to the material property
                     string suffix = propertyName.Substring(propertyName.IndexOf('.'));
-                    return "material._OPS_PENETRATOR_GLOW_COLOR" + suffix;
+                    return "material._OpsPenetrator_GLOW_COLOR" + suffix;
                 }
-                return "material._OPS_PENETRATOR_GLOW_COLOR";
+                return "material._OpsPenetrator_GLOW_COLOR";
             }
 
             switch (propertyName)
             {
-                case "emissionStrength": return "material._OPS_PENETRATOR_EMISSION_STRENGTH";
-                case "avoidOnSelfChannel": return "material._OPS_PENETRATOR_AVOID_ON_SELF_MASK";
+                case "emissionStrength": return "material._OpsPenetrator_EMISSION_STRENGTH";
+                case "avoidOnSelfChannel": return "material._OpsPenetrator_AVOID_ON_SELF_MASK";
                 case "SelectedChannel": return "material._OPS_ID_CHANNEL";
                 case "frot_mode": return "material._OPS_FROT_MODE";
                 default: return null;

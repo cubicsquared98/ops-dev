@@ -1,4 +1,4 @@
-Shader "cubic/ops/ops_penetrator_writer"
+Shader "cubic/ops/OpsPenetrator_writer"
 {
     //World position of skinned mesh this is attached to must be the same as the penetrator
     //Place root bone of the skinned mesh this is on to line up with SPS penetrator, so that start point, end point and radius match
@@ -9,9 +9,9 @@ Shader "cubic/ops/ops_penetrator_writer"
         _HASH_SEED ("Hash seed INTEGER", Int) = 0
         _HASH_SEED_AVI_ID ("Hash seed AVI ID INTEGER", Int) = 0
         _OVERRIDE_USE_ID ("OVERRIDE AUTO ID (1 = enable)", Int) = 0
-        _OPS_PENETRATOR_GLOW_COLOR ("Color", Color) = (0,0,0,0)
-        _OPS_PENETRATOR_EMISSION_STRENGTH ("Emission strength", Float) = 0
-        _OPS_PENETRATOR_AVOID_ON_SELF_MASK ("Avoid on self mask (Must be higher than -1)", Int) = -1
+        _OpsPenetrator_GLOW_COLOR ("Color", Color) = (0,0,0,0)
+        _OpsPenetrator_EMISSION_STRENGTH ("Emission strength", Float) = 0
+        _OpsPenetrator_AVOID_ON_SELF_MASK ("Avoid on self mask (Must be higher than -1)", Int) = -1
         _OPS_ID_CHANNEL("OPS Channel (to select set higher than -1)", Int) = -1
         _OPS_SKINNED_BONES_OFFSET("Starting ID to write bone scaling data", Int) = 0
         [Enum(Disabled, 0, Enabled, 1)] _OPS_SKINNED_BONES_ENABLED("enables skinned bones mode", Int) = 0
@@ -58,7 +58,7 @@ Shader "cubic/ops/ops_penetrator_writer"
                 float4 vertex : POSITION;
                 uint VertexId : TEXCOORD1;
                 float3 worldPos : TEXCOORD2;
-                uint OPS_PENETRATOR_ID : TEXCOORD3;
+                uint OpsPenetrator_ID : TEXCOORD3;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -75,10 +75,10 @@ Shader "cubic/ops/ops_penetrator_writer"
                 UNITY_DEFINE_INSTANCED_PROP(uint, _HASH_SEED)
                 UNITY_DEFINE_INSTANCED_PROP(uint, _HASH_SEED_AVI_ID)
                 UNITY_DEFINE_INSTANCED_PROP(uint, _OVERRIDE_USE_ID)
-                UNITY_DEFINE_INSTANCED_PROP(float,  _OPS_PENETRATOR_EMISSION_STRENGTH)
+                UNITY_DEFINE_INSTANCED_PROP(float,  _OpsPenetrator_EMISSION_STRENGTH)
                 UNITY_DEFINE_INSTANCED_PROP(int,    _OPS_ID_CHANNEL)
-                UNITY_DEFINE_INSTANCED_PROP(int,    _OPS_PENETRATOR_AVOID_ON_SELF_MASK)
-                UNITY_DEFINE_INSTANCED_PROP(float4, _OPS_PENETRATOR_GLOW_COLOR)
+                UNITY_DEFINE_INSTANCED_PROP(int,    _OpsPenetrator_AVOID_ON_SELF_MASK)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _OpsPenetrator_GLOW_COLOR)
                 UNITY_DEFINE_INSTANCED_PROP(uint,   _OPS_SKINNED_BONES_OFFSET)
                 UNITY_DEFINE_INSTANCED_PROP(uint,   _OPS_SKINNED_BONES_ENABLED)
                 UNITY_DEFINE_INSTANCED_PROP(uint,   _OPS_FROT_MODE)
@@ -99,10 +99,10 @@ Shader "cubic/ops/ops_penetrator_writer"
                 uint override_ID = UNITY_ACCESS_INSTANCED_PROP(Props, _OVERRIDE_USE_ID);
                 if(_OPS_ID_TextureExists() && override_ID != 1){
                     uint Hash_seed = UNITY_ACCESS_INSTANCED_PROP(Props, _HASH_SEED);
-                    o.OPS_PENETRATOR_ID = getID(worldObjectPos, Hash_seed, distance_to_camera, ID_SPACE_PENETRATOR);
+                    o.OpsPenetrator_ID = getID(worldObjectPos, Hash_seed, distance_to_camera, ID_SPACE_PENETRATOR);
                 }
                 else{
-                    o.OPS_PENETRATOR_ID = UNITY_ACCESS_INSTANCED_PROP(Props, _ID);
+                    o.OpsPenetrator_ID = UNITY_ACCESS_INSTANCED_PROP(Props, _ID);
                 }
 
                 o.VertexId = v.VertexId;
@@ -137,8 +137,8 @@ Shader "cubic/ops/ops_penetrator_writer"
 
 
                     // Calculate the exact Bottom and Top boundaries for this ID's row
-                    float bottomEdge = -1.0 + (input[0].OPS_PENETRATOR_ID * pixelSizeClip.y);
-                    float topEdge    = -1.0 + ((input[0].OPS_PENETRATOR_ID + 1.0) * pixelSizeClip.y);
+                    float bottomEdge = -1.0 + (input[0].OpsPenetrator_ID * pixelSizeClip.y);
+                    float topEdge    = -1.0 + ((input[0].OpsPenetrator_ID + 1.0) * pixelSizeClip.y);
 
                     // Array holding our X, Y, and Z data
                     values[offset_penetrator_is_active_p1] = PackToFloat4(1.0f);
@@ -151,9 +151,9 @@ Shader "cubic/ops/ops_penetrator_writer"
                     values[offset_penetrator_world_radius_up_point_x_p1] = PackToFloat4(yPoint.x);
                     values[offset_penetrator_world_radius_up_point_y_p1] = PackToFloat4(yPoint.y);
                     values[offset_penetrator_world_radius_up_point_z_p1] = PackToFloat4(yPoint.z);
-                    values[offset_penetrator_glow_color_rgb_p1] = UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_PENETRATOR_GLOW_COLOR);
-                    values[offset_penetrator_emission_strength_p1] = PackToFloat4(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_PENETRATOR_EMISSION_STRENGTH));
-                    values[offset_penetrator_avoid_on_self_mask_p1] = PackToFloat4(float(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_PENETRATOR_AVOID_ON_SELF_MASK)));
+                    values[offset_penetrator_glow_color_rgb_p1] = UNITY_ACCESS_INSTANCED_PROP(Props, _OpsPenetrator_GLOW_COLOR);
+                    values[offset_penetrator_emission_strength_p1] = PackToFloat4(UNITY_ACCESS_INSTANCED_PROP(Props, _OpsPenetrator_EMISSION_STRENGTH));
+                    values[offset_penetrator_avoid_on_self_mask_p1] = PackToFloat4(float(UNITY_ACCESS_INSTANCED_PROP(Props, _OpsPenetrator_AVOID_ON_SELF_MASK)));
                     values[offset_penetrator_channel_id_p1] = PackToFloat4(float(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_ID_CHANNEL)));
                     values[offset_penetrator_bone_data_start_bone_index_p1] = PackToFloat4(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_SKINNED_BONES_OFFSET));
                     values[offset_penetrator_bone_data_enabled_p1] = PackToFloat4(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_SKINNED_BONES_ENABLED));
@@ -210,8 +210,8 @@ Shader "cubic/ops/ops_penetrator_writer"
 
 
                     // Calculate the exact Bottom and Top boundaries for this ID's row
-                    float bottomEdge = -1.0 + (input[0].OPS_PENETRATOR_ID * pixelSizeClip.y);
-                    float topEdge    = -1.0 + ((input[0].OPS_PENETRATOR_ID + 1.0) * pixelSizeClip.y);
+                    float bottomEdge = -1.0 + (input[0].OpsPenetrator_ID * pixelSizeClip.y);
+                    float topEdge    = -1.0 + ((input[0].OpsPenetrator_ID + 1.0) * pixelSizeClip.y);
 
                     // Array holding our X, Y, and Z data
                     values[offset_penetrator_avatar_id_p2] = PackToFloat4(AVATAR_ID);
@@ -273,8 +273,8 @@ Shader "cubic/ops/ops_penetrator_writer"
                     float xStartOffset = -1.0; // Always -1.0!
 
                     // Calculate the exact Bottom and Top boundaries for this ID's row
-                    float bottomEdge = -1.0 + (input[0].OPS_PENETRATOR_ID * pixelSizeClip.y);
-                    float topEdge    = -1.0 + ((input[0].OPS_PENETRATOR_ID + 1.0) * pixelSizeClip.y);
+                    float bottomEdge = -1.0 + (input[0].OpsPenetrator_ID * pixelSizeClip.y);
+                    float topEdge    = -1.0 + ((input[0].OpsPenetrator_ID + 1.0) * pixelSizeClip.y);
 
                     uint HalfAcrossScreen = _ScreenParams.x / 2;
 

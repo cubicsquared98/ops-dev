@@ -1,4 +1,4 @@
-Shader "cubic/ops/ops_orifice_writer"
+Shader "cubic/ops/OpsOrifice_writer"
 {
     Properties
     {
@@ -59,7 +59,7 @@ Shader "cubic/ops/ops_orifice_writer"
                 float3 worldPos : TEXCOORD0;
                 float3 forwardDir : TEXCOORD1;
                 float3 upDir : TEXCOORD2;
-                uint OPS_ORIFICE_ID : TEXCOORD3;
+                uint OpsOrifice_ID : TEXCOORD3;
                 float3 worldPos_v : TEXCOORD4;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
@@ -105,10 +105,10 @@ Shader "cubic/ops/ops_orifice_writer"
                 uint override_use_ID = UNITY_ACCESS_INSTANCED_PROP(Props, _OVERRIDE_USE_ID);
                 if(_OPS_ID_TextureExists() && override_use_ID != 1){
                     uint hash_Seed = UNITY_ACCESS_INSTANCED_PROP(Props, _HASH_SEED);
-                    o.OPS_ORIFICE_ID = getID(o.worldPos, hash_Seed, distance_to_camera, ID_SPACE_ORIFICE);
+                    o.OpsOrifice_ID = getID(o.worldPos, hash_Seed, distance_to_camera, ID_SPACE_ORIFICE);
                 }
                 else{
-                    o.OPS_ORIFICE_ID = UNITY_ACCESS_INSTANCED_PROP(Props, _ID);
+                    o.OpsOrifice_ID = UNITY_ACCESS_INSTANCED_PROP(Props, _ID);
                 }
                 o.worldPos_v = mul(unity_ObjectToWorld, v.vertex).xyz;
 
@@ -167,8 +167,8 @@ Shader "cubic/ops/ops_orifice_writer"
                     float xStartOffset = -1.0; // Always -1.0!
 
                     // Calculate the exact Bottom and Top boundaries for this ID's row
-                    float bottomEdge = -1.0 + (input[0].OPS_ORIFICE_ID * pixelSizeClip.y);
-                    float topEdge    = -1.0 + ((input[0].OPS_ORIFICE_ID + 1.0) * pixelSizeClip.y);
+                    float bottomEdge = -1.0 + (input[0].OpsOrifice_ID * pixelSizeClip.y);
+                    float topEdge    = -1.0 + ((input[0].OpsOrifice_ID + 1.0) * pixelSizeClip.y);
 
                     uint4 ops_types = uint4(
                         UNITY_ACCESS_INSTANCED_PROP(Props, _HoleType),
@@ -233,8 +233,8 @@ Shader "cubic/ops/ops_orifice_writer"
                     float xStartOffset = -1.0; // Always -1.0!
 
                     // Calculate the exact Bottom and Top boundaries for this ID's row
-                    float bottomEdge = -1.0 + (input[0].OPS_ORIFICE_ID * pixelSizeClip.y);
-                    float topEdge    = -1.0 + ((input[0].OPS_ORIFICE_ID + 1.0) * pixelSizeClip.y);
+                    float bottomEdge = -1.0 + (input[0].OpsOrifice_ID * pixelSizeClip.y);
+                    float topEdge    = -1.0 + ((input[0].OpsOrifice_ID + 1.0) * pixelSizeClip.y);
 
 
                     //Get index to write this path component at

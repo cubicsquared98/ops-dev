@@ -12,8 +12,8 @@ namespace ops_dev.Editor.Builders {
 
         public bool OnPreprocessAvatar(GameObject avatarGameObject)
         {
-            ops_penetrator[] penetrators = avatarGameObject.GetComponentsInChildren<ops_penetrator>(true);
-            ops_orifice[] orifices = avatarGameObject.GetComponentsInChildren<ops_orifice>(true);
+            OpsPenetrator[] penetrators = avatarGameObject.GetComponentsInChildren<OpsPenetrator>(true);
+            OpsOrifice[] orifices = avatarGameObject.GetComponentsInChildren<OpsOrifice>(true);
 
             if(penetrators.Length == 0 && orifices.Length == 0){
                 return true;

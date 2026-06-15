@@ -5,7 +5,7 @@ using UnityEngine;
 using VRC.SDKBase;
 
 namespace ops_dev.Components {
-    public class ops_penetrator : MonoBehaviour, IEditorOnly
+    public class OpsPenetrator : MonoBehaviour, IEditorOnly
     {
         [Header("Penetrator mesh target")]
         [Tooltip("Set this to the penetrator mesh (smr), will setup the root component correctly")]

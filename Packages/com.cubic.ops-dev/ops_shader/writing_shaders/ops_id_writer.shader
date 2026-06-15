@@ -1,4 +1,4 @@
-Shader "cubic/ops/ops_ID_writer_vert"
+Shader "cubic/ops/OpsIDWriter_vert"
 {
     Properties
     {

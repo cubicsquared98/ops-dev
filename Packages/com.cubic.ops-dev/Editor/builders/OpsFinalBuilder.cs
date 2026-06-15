@@ -9,7 +9,7 @@ using VRC.SDK3.Avatars.Components;
 using ops_dev.Components;
 
 namespace ops_dev.Editor.Builders {
-    public class ops_final_builder : IVRCSDKPreprocessAvatarCallback
+    public class OpsFinalBuilder : IVRCSDKPreprocessAvatarCallback
     {
         public int callbackOrder => -99;
 
@@ -33,18 +33,18 @@ namespace ops_dev.Editor.Builders {
             }
 
             if(avatar_ID_Base == null){
-                Debug.LogError("[ops_final_builder] Build Failed: no avatar ID base component found");
+                Debug.LogError("[OpsFinalBuilder] Build Failed: no avatar ID base component found");
                 return false;
             }
 
             OpsAvatarComponent[] ops_components = avatarGameObject.GetComponentsInChildren<OpsAvatarComponent>(true);
             if(ops_components.Length < 1){
-                Debug.LogError("[ops_final_builder] Build Failed: no avatar ID base component found");
+                Debug.LogError("[OpsFinalBuilder] Build Failed: no avatar ID base component found");
                 return false;
             }
             OpsAvatarComponent ops_component = ops_components[0];
             if(ops_component == null){
-                Debug.LogError("[ops_final_builder] Build Failed: avatar ID base component is null");
+                Debug.LogError("[OpsFinalBuilder] Build Failed: avatar ID base component is null");
                 return false;
             }
 
@@ -52,7 +52,7 @@ namespace ops_dev.Editor.Builders {
 
             SkinnedMeshRenderer avatar_id_writer = avatar_ID_Base.GetComponentInChildren<SkinnedMeshRenderer>(true);
             if(avatar_id_writer == null){
-                Debug.LogError("[ops_final_builder] Build Failed: failed to find SMR on avi base component");
+                Debug.LogError("[OpsFinalBuilder] Build Failed: failed to find SMR on avi base component");
                 return false;
             }
 

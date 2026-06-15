@@ -5,7 +5,7 @@ using UnityEngine;
 using VRC.SDKBase;
 
 namespace ops_dev.Components {
-    public class ops_orifice : MonoBehaviour, IEditorOnly
+    public class OpsOrifice : MonoBehaviour, IEditorOnly
     {
         //Types
         public enum HoleTypeEnum { Hole = 1, Ring = 2}

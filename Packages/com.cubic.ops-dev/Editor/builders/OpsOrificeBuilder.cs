@@ -16,7 +16,7 @@ namespace ops_dev.Editor.Builders {
 
         public bool OnPreprocessAvatar(GameObject avatarGameObject)
         {
-            ops_orifice[] orifii = avatarGameObject.GetComponentsInChildren<ops_orifice>(true);
+            OpsOrifice[] orifii = avatarGameObject.GetComponentsInChildren<OpsOrifice>(true);
             if (orifii.Length == 0) return true;
 
             string folderPath = "Packages/com.cubic.ops-dev/Runtime/ops_generated";
@@ -37,9 +37,9 @@ namespace ops_dev.Editor.Builders {
             }
 
             // Dictionary to keep track of which mesh belongs to which orifice for animation retargeting
-            Dictionary<ops_orifice, GameObject> generatedMeshes = new Dictionary<ops_orifice, GameObject>();
+            Dictionary<OpsOrifice, GameObject> generatedMeshes = new Dictionary<OpsOrifice, GameObject>();
 
-            foreach (ops_orifice orifice in orifii)
+            foreach (OpsOrifice orifice in orifii)
             {
                 if (orifice.opsOraficeWriter == null) continue;
 
@@ -50,7 +50,7 @@ namespace ops_dev.Editor.Builders {
                 generatedMeshes.Add(orifice, generatedMesh);
                 // OpsIDWriter new_ID_Writer = generatedMesh.GetComponent<OpsIDWriter>();
                 // if(new_ID_Writer == null){
-                //     Debug.LogError("[ops_orifice_builder] No ID WRITER FOUND");
+                //     Debug.LogError("[OpsOrificeBuilder] No ID WRITER FOUND");
                 // }
                 // else{
                 //     writers.Add(new_ID_Writer);
@@ -70,7 +70,7 @@ namespace ops_dev.Editor.Builders {
         }
 
 
-        public static GameObject CreateSkinnedTriangle(Transform parent, string savePath, Transform avatar_base_target, Shader s1, int hash_seed, int hash_seed_avi, ops_orifice settings)
+        public static GameObject CreateSkinnedTriangle(Transform parent, string savePath, Transform avatar_base_target, Shader s1, int hash_seed, int hash_seed_avi, OpsOrifice settings)
         {
             string uniqueID = settings.name + "_" + System.DateTime.Now.Ticks.ToString();
             string folderName = "Orafice_" + uniqueID;
@@ -234,7 +234,7 @@ namespace ops_dev.Editor.Builders {
         }
 
         //Search through avatar descriptor for animation controllers    
-        private void RetargetAnimations(GameObject avatar, Dictionary<ops_orifice, GameObject> generatedMeshes, string savePath)
+        private void RetargetAnimations(GameObject avatar, Dictionary<OpsOrifice, GameObject> generatedMeshes, string savePath)
         {
             VRCAvatarDescriptor descriptor = avatar.GetComponent<VRCAvatarDescriptor>();
             if (descriptor == null) return;
@@ -278,7 +278,7 @@ namespace ops_dev.Editor.Builders {
             }
         }
 
-        private RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, GameObject avatar, Dictionary<ops_orifice, GameObject> generatedMeshes, string savePath)
+        private RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, GameObject avatar, Dictionary<OpsOrifice, GameObject> generatedMeshes, string savePath)
         {
             // Get the path of the original controller
             string oldAssetPath = AssetDatabase.GetAssetPath(originalController);
@@ -317,7 +317,7 @@ namespace ops_dev.Editor.Builders {
 
             // If no clips were modified, we don't need to duplicate the controller
             if (clipReplacements.Count == 0){
-                //Debug.LogWarning($"[ops_penetrator_builder] No clip replacements found");
+                //Debug.LogWarning($"[OpsPenetratorBuilder] No clip replacements found");
                 return originalController;
             }
 
@@ -334,14 +334,14 @@ namespace ops_dev.Editor.Builders {
         }
 
         //Check and process each animation clip
-        private AnimationClip ProcessClip(AnimationClip originalClip, GameObject avatar, Dictionary<ops_orifice, GameObject> generatedMeshes, string savePath)
+        private AnimationClip ProcessClip(AnimationClip originalClip, GameObject avatar, Dictionary<OpsOrifice, GameObject> generatedMeshes, string savePath)
         {
             EditorCurveBinding[] bindings = AnimationUtility.GetCurveBindings(originalClip);
             bool clipNeedsModification = false;
 
             foreach (var binding in bindings)
             {
-                if (binding.type == typeof(ops_orifice))
+                if (binding.type == typeof(OpsOrifice))
                 {
                     clipNeedsModification = true;
                     break;
@@ -358,13 +358,13 @@ namespace ops_dev.Editor.Builders {
             bindings = AnimationUtility.GetCurveBindings(newClip);
             foreach (var binding in bindings)
             {
-                if (binding.type == typeof(ops_orifice))
+                if (binding.type == typeof(OpsOrifice))
                 {
                     Transform targetTransform = string.IsNullOrEmpty(binding.path) ? avatar.transform : avatar.transform.Find(binding.path);
                     
                     if (targetTransform != null)
                     {
-                        ops_orifice targetOrifice = targetTransform.GetComponent<ops_orifice>();
+                        OpsOrifice targetOrifice = targetTransform.GetComponent<OpsOrifice>();
                         if (targetOrifice != null && generatedMeshes.ContainsKey(targetOrifice))
                         {
                             GameObject generatedMesh = generatedMeshes[targetOrifice];
