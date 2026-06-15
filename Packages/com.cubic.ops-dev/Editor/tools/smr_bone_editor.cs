@@ -1,8 +1,9 @@
 using UnityEngine;
 using UnityEditor;
+
 namespace ops_dev.Editor.Tools {
     [CustomEditor(typeof(SkinnedMeshBoneEditor))]
-    public class SkinnedMeshBoneEditorInspector : Editor
+    public class SkinnedMeshBoneEditorInspector : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
         {
