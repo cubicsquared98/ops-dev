@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a955e2b5da8b4154ba5ebb34937f6370
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - OraficeTarget: {instanceID: 0}
+  - opsOraficeWriter: {fileID: 4800000, guid: 6a0254066d5b34e498ad47b4553b1cb5, type: 3}
+  - idWriterMesh: {fileID: 4300000, guid: 3f1adb41d315f354a8468917cb2e9d01, type: 2}
+  - idWriterMaterial: {fileID: 2100000, guid: adf423a7977b8ce40809dcdbdf6bdca0, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

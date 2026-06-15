@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: bccd75764c48e9e4a8397d48338bf281
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - penetratorMeshObject: {instanceID: 0}
+  - sps_component_parent: {instanceID: 0}
+  - ops_advanced_reparent_penetrator_data_mesh: {instanceID: 0}
+  - opsPenetratorWriter: {fileID: 4800000, guid: d0c0c91a693c39a4e946db4e3b1de9e7,
+      type: 3}
+  - idWriterMesh: {fileID: 4300000, guid: 3f1adb41d315f354a8468917cb2e9d01, type: 2}
+  - idWriterMaterial: {fileID: 2100000, guid: adf423a7977b8ce40809dcdbdf6bdca0, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

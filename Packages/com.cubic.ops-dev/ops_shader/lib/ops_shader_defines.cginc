@@ -1,0 +1,117 @@
+//THIS IS A TEST. DO NOT REDISTRIBUTE.
+#define offset_Orafice_ID_BitWise_Booleans 0
+#define offset_Orafice_world_pos 1
+#define offset_Orafice_world_forward_vec 4
+#define offset_Orafice_world_up_vec 7
+
+#define offset_Orafice_world_pos_x 1
+#define offset_Orafice_world_pos_y 2
+#define offset_Orafice_world_pos_z 3
+#define offset_Orafice_world_forward_vec_x 4
+#define offset_Orafice_world_forward_vec_y 5
+#define offset_Orafice_world_forward_vec_z 6
+#define offset_Orafice_world_up_vec_x 7
+#define offset_Orafice_world_up_vec_y 8
+#define offset_Orafice_world_up_vec_z 9
+
+#define offset_Orafice_ops_type 10
+#define offset_Orafice_ops_disable_recursion 11
+
+#define offset_Orafice_channel_id 12
+#define offset_Orafice_avatar_id 13
+#define offset_Orafice_avoid_on_self 14
+#define offset_Orafice_avoid_on_self_mask 15
+
+#define offset_Orafice_dynamic_Path_Count 16
+
+
+#define Total_Orafice_Written_Values 17
+
+#define dynamic_offset_Orafice_Per_Path 10
+#define dynamic_offset_Orafice_Path_x 0
+#define dynamic_offset_Orafice_Path_y 1
+#define dynamic_offset_Orafice_Path_z 2
+#define dynamic_offset_Orafice_Path_forward_vec_x 3
+#define dynamic_offset_Orafice_Path_forward_vec_y 4
+#define dynamic_offset_Orafice_Path_forward_vec_z 5
+#define dynamic_offset_Orafice_Path_up_vec_x 6
+#define dynamic_offset_Orafice_Path_up_vec_y 7
+#define dynamic_offset_Orafice_Path_up_vec_z 8
+#define dynamic_offset_Orafice_Path_hide_segment 9
+
+#define offset_penetrator_is_active 0
+#define offset_penetrator_world_start_point_x 1
+#define offset_penetrator_world_start_point_y 2
+#define offset_penetrator_world_start_point_z 3
+#define offset_penetrator_world_end_point_x 4
+#define offset_penetrator_world_end_point_y 5
+#define offset_penetrator_world_end_point_z 6
+#define offset_penetrator_world_radius_up_point_x 7
+#define offset_penetrator_world_radius_up_point_y 8
+#define offset_penetrator_world_radius_up_point_z 9
+#define offset_penetrator_glow_color_rgb 10
+#define offset_penetrator_emission_strength 11
+#define offset_penetrator_avoid_on_self_mask 12
+#define offset_penetrator_channel_id 13
+//Bone start index  - not needed to be written / read in sps now (other penetrators/orifii dont need this info)
+#define offset_penetrator_bone_data_start_bone_index 14
+//Bone data enable  - not needed to be written / read in sps now (other penetrators/orifii dont need this info)
+#define offset_penetrator_bone_data_enabled 15
+#define offset_penetrator_frot_mode 16
+#define offset_penetrator_avatar_id 17
+
+
+#define offset_penetrator_bone_data_start 18
+
+#define dynamic_offset_penetrator_Bone_data 2
+#define dynamic_offset_penetrator_Bone_relative_radius_scale_x 0
+#define dynamic_offset_penetrator_Bone_relative_radius_scale_y 1
+
+#define offset_penetrator_is_active_p1 offset_penetrator_is_active
+#define offset_penetrator_world_start_point_x_p1 offset_penetrator_world_start_point_x
+#define offset_penetrator_world_start_point_y_p1 offset_penetrator_world_start_point_y
+#define offset_penetrator_world_start_point_z_p1 offset_penetrator_world_start_point_z
+#define offset_penetrator_world_end_point_x_p1 offset_penetrator_world_end_point_x
+#define offset_penetrator_world_end_point_y_p1 offset_penetrator_world_end_point_y
+#define offset_penetrator_world_end_point_z_p1 offset_penetrator_world_end_point_z
+#define offset_penetrator_world_radius_up_point_x_p1 offset_penetrator_world_radius_up_point_x
+#define offset_penetrator_world_radius_up_point_y_p1 offset_penetrator_world_radius_up_point_y
+#define offset_penetrator_world_radius_up_point_z_p1 offset_penetrator_world_radius_up_point_z
+#define offset_penetrator_glow_color_rgb_p1 offset_penetrator_glow_color_rgb
+#define offset_penetrator_emission_strength_p1 offset_penetrator_emission_strength
+#define offset_penetrator_avoid_on_self_mask_p1 offset_penetrator_avoid_on_self_mask
+#define offset_penetrator_channel_id_p1 offset_penetrator_channel_id
+#define offset_penetrator_bone_data_start_bone_index_p1 offset_penetrator_bone_data_start_bone_index
+#define offset_penetrator_bone_data_enabled_p1 offset_penetrator_bone_data_enabled
+#define offset_penetrator_frot_mode_p1 offset_penetrator_frot_mode
+
+#define offset_penetrator_avatar_id_p2 0
+
+#define Total_written_penetrator_values_p1 17
+#define Total_written_penetrator_values_p1_start 0
+#define Total_written_penetrator_values_p2 1
+#define Total_written_penetrator_values_p2_start 17
+#define Total_written_penetrator_values 18
+
+
+#define OPS_hole_type_INVALID 0
+#define OPS_hole_type_HOLE 1
+#define OPS_hole_type_RING 2
+
+#define OPS_hole_entry_direction_INVALID 0
+#define OPS_hole_entry_direction_ONE_WAY 1
+#define OPS_hole_entry_direction_TWO_WAY 2
+
+#define OPS_hole_alignment_INVALID 0
+#define OPS_hole_alignment_CENTER_ALIGNED 1
+#define OPS_hole_alignment_RADIUS_ALIGNED 2
+
+// #define OPS_sps_compat_TYPE_INVALID 0
+// #define OPS_sps_compat_TYPE_HOLE 1
+// #define OPS_sps_compat_TYPE_RING_TWOWAY 2
+// #define OPS_sps_compat_TYPE_SPSPLUS 3
+// #define OPS_sps_compat_TYPE_RING_ONEWAY 4
+// #define OPS_sps_compat_TYPE_FRONT 5
+
+#define OPS_DISTANCE_ORIGIN 0
+#define OPS_DISTANCE_LENGTH 1

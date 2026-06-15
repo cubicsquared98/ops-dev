@@ -1,0 +1,51 @@
+{
+    "name": "ops_dev.Editor",
+    "rootNamespace": "ops_dev",
+    "references": [
+        "GUID:e0d638abbc4833b4d8c96a1db65cf7b2",
+        "GUID:3456780c4fb2d324ab9c633d6f1b0ddb",
+        "GUID:5718fb738711cd34ea54e9553040911d",
+        "GUID:6e9c6119ac4eb334284fb7b4bc6d1f05"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [
+        "Android",
+        "EmbeddedLinux",
+        "GameCoreScarlett",
+        "GameCoreXboxOne",
+        "iOS",
+        "LinuxStandalone64",
+        "CloudRendering",
+        "macOSStandalone",
+        "PS4",
+        "PS5",
+        "QNX",
+        "Stadia",
+        "Switch",
+        "tvOS",
+        "WSA",
+        "VisionOS",
+        "WebGL",
+        "WindowsStandalone32",
+        "WindowsStandalone64",
+        "XboxOne"
+    ],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.vrchat.base",
+            "expression": "3.1.12",
+            "define": "VRC_NEW_HOOK_API"
+        },
+        {
+            "name": "com.vrchat.base",
+            "expression": "3.3.0",
+            "define": "VRC_NEW_PUBLIC_SDK"
+        }
+    ],
+    "noEngineReferences": false
+}

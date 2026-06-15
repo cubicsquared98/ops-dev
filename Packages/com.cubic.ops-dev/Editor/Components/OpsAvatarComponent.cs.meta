@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: eac0247d069d7d144a6b8f918b09e34d
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - clear_screen_1: {fileID: 2100000, guid: f93b1237ad7ec2148a65985c674fdd45, type: 2}
+  - clear_screen_2: {fileID: 2100000, guid: cff1a61b8fdf8044e819fe97353c86d4, type: 2}
+  - grab_ops_id_mat: {fileID: 2100000, guid: ae6c0628d01f7484e8276b3db0c12df2, type: 2}
+  - grab_ops_data_mat: {fileID: 2100000, guid: b1baf9b9dc1db2b4698ffa5e3a839c60, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

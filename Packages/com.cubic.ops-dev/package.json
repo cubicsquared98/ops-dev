@@ -9,5 +9,9 @@
     "name": "cubic",
     "email": "cubicsquared98@gmail.com",
     "url": ""
+  },
+  "dependencies": {
+    "com.vrchat.avatars": "",
+    "com.vrchat.base": ""
   }
 }
