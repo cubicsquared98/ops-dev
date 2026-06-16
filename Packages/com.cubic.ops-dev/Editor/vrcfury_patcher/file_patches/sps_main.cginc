@@ -1148,12 +1148,12 @@ void ops_apply(
 	}
 
 	//IF vert is within 5% of penetrator length after base - change dumblerp to 0 -> 1; so that deformation is smooth across the boundry. This is to make a z-transformed penetrator smoother
-
-	dumbLerp = min(dumbLerp, sps_saturated_map(
-		bakedVertex.z,
-		0,
-		length_z *0.05
-	));
+	//Disabled until a better option is found / isnt a super big issue
+	// dumbLerp = min(dumbLerp, sps_saturated_map(
+	// 	bakedVertex.z,
+	// 	0,
+	// 	length_z *0.05
+	// ));
 
 	//Apply deformations
 	apply_deformations(vertex, normal, tangent,
