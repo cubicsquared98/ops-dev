@@ -1,4 +1,4 @@
-Shader "cubic/ops/tools/GrabPass_Visualizer"
+Shader "cubic/test/GrabPass_Visualizer"
 {
     Properties
     {

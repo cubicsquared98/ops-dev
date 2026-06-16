@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: grab_debugger_visualise
-  m_Shader: {fileID: 4800000, guid: 40d0e9bc65a97bd4084ea85e1faa3c25, type: 3}
+  m_Shader: {fileID: 4800000, guid: 9f9ebf213e6d7dc45ba4f85a932618dd, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
