@@ -4,9 +4,13 @@
 #include "sps_bake.cginc"
 #include "sps_utils.cginc"
 
-#include "lib/ops_shader_defines.cginc"
-#include "lib/ops_shader_reader_lib.cginc"
-#include "lib/ops_id.cginc"
+// #include "lib/ops_shader_defines.cginc"
+// #include "lib/ops_shader_reader_lib.cginc"
+// #include "lib/ops_id.cginc"
+
+#include "../../com.cubic.ops-dev/ops_shader/lib/ops_shader_defines.cginc"
+#include "../../com.cubic.ops-dev/ops_shader/lib/ops_shader_reader_lib.cginc"
+#include "../../com.cubic.ops-dev/ops_shader/lib/ops_id.cginc"
 
 uint _OPS_HASH_SEED;
 uint _OPS_SKINNED_BONES_OFFSET;
