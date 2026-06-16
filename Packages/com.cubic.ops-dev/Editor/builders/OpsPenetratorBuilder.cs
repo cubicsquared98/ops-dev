@@ -116,7 +116,7 @@ namespace ops_dev.Editor.Builders {
                 sps_mat.SetInt("_OPS_HASH_SEED", hash_seed);
                 sps_mat.SetInt("_OPS_SKINNED_BONES_OFFSET", settings.starting_index);
                 sps_mat.SetInt("_OPS_SKINNED_BONES_ENABLED", settings.smr_bones.Count > 0 ? 1 : 0);
-                sps_mat.SetInt("_OpsPenetrator_AVOID_ON_SELF_MASK", settings.avoidOnSelfChannel);
+                sps_mat.SetInt("_OPS_PENETRATOR_AVOID_ON_SELF_MASK", settings.avoidOnSelfChannel);
                 sps_mat.SetInt("_OPS_ID_CHANNEL", settings.SelectedChannel);
                 sps_mat.SetInt("_OPS_FROT_MODE", settings.frot_mode ? 1 : 0);
             }
@@ -253,9 +253,9 @@ namespace ops_dev.Editor.Builders {
             mats[0].SetInt("_HASH_SEED_AVI_ID", hash_seed_avi);
             mats[0].SetInt("_ID", 0);
             mats[0].SetInt("_OVERRIDE_USE_ID", 0);
-            mats[0].SetColor("_OpsPenetrator_GLOW_COLOR", settings.penetratorGlowColor);
-            mats[0].SetFloat("_OpsPenetrator_EMISSION_STRENGTH", settings.emissionStrength);
-            mats[0].SetInt("_OpsPenetrator_AVOID_ON_SELF_MASK", settings.avoidOnSelfChannel);
+            mats[0].SetColor("_OPS_PENETRATOR_GLOW_COLOR", settings.penetratorGlowColor);
+            mats[0].SetFloat("_OPS_PENETRATOR_EMISSION_STRENGTH", settings.emissionStrength);
+            mats[0].SetInt("_OPS_PENETRATOR_AVOID_ON_SELF_MASK", settings.avoidOnSelfChannel);
             mats[0].SetInt("_OPS_ID_CHANNEL", settings.avoidOnSelfChannel);
             mats[0].SetInt("_OPS_SKINNED_BONES_OFFSET", settings.SelectedChannel);
             mats[0].SetInt("_OPS_SKINNED_BONES_ENABLED", settings.smr_bones.Count > 0 ? 1 : 0);
@@ -474,15 +474,15 @@ namespace ops_dev.Editor.Builders {
                 {
                     // Extract the suffix (".r") and append it to the material property
                     string suffix = propertyName.Substring(propertyName.IndexOf('.'));
-                    return "material._OpsPenetrator_GLOW_COLOR" + suffix;
+                    return "material._OPS_PENETRATOR_GLOW_COLOR" + suffix;
                 }
-                return "material._OpsPenetrator_GLOW_COLOR";
+                return "material._OPS_PENETRATOR_GLOW_COLOR";
             }
 
             switch (propertyName)
             {
-                case "emissionStrength": return "material._OpsPenetrator_EMISSION_STRENGTH";
-                case "avoidOnSelfChannel": return "material._OpsPenetrator_AVOID_ON_SELF_MASK";
+                case "emissionStrength": return "material._OPS_PENETRATOR_EMISSION_STRENGTH";
+                case "avoidOnSelfChannel": return "material._OPS_PENETRATOR_AVOID_ON_SELF_MASK";
                 case "SelectedChannel": return "material._OPS_ID_CHANNEL";
                 case "frot_mode": return "material._OPS_FROT_MODE";
                 default: return null;
