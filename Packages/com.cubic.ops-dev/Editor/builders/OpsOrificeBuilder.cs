@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+//#if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -17,6 +17,7 @@ namespace ops_dev.Editor.Builders {
         public bool OnPreprocessAvatar(GameObject avatarGameObject)
         {
             OpsOrifice[] orifii = avatarGameObject.GetComponentsInChildren<OpsOrifice>(true);
+            //Check if any ops orifices exist
             if (orifii.Length == 0) return true;
 
             string folderPath = "Packages/com.cubic.ops-dev/Runtime/ops_generated";
@@ -46,24 +47,14 @@ namespace ops_dev.Editor.Builders {
                 int hashSeed = Random.Range(0, int.MaxValue);
                 int hashSeedAvi = avatar_ID_Base.hashSeed;
 
+                //Puts together the gameobject for the ops orifice - also adding an ops ID writer to it
                 GameObject generatedMesh = CreateSkinnedTriangle(orifice.transform, folderPath, avatar_ID_Base.transform, orifice.opsOraficeWriter, hashSeed, hashSeedAvi, orifice);
                 generatedMeshes.Add(orifice, generatedMesh);
-                // OpsIDWriter new_ID_Writer = generatedMesh.GetComponent<OpsIDWriter>();
-                // if(new_ID_Writer == null){
-                //     Debug.LogError("[OpsOrificeBuilder] No ID WRITER FOUND");
-                // }
-                // else{
-                //     writers.Add(new_ID_Writer);
-                // }
             }
 
             AssetDatabase.SaveAssets();
 
-            RetargetAnimations(avatarGameObject, generatedMeshes, folderPath);
-
-            //Now place in the OpsIDWriters
-
-            //OpsIDWriterBuilder.BuildOpsIDWriters(avatarGameObject, writers.ToArray());
+            OpsAnimationRetargeter.RetargetOrificeAnimations(avatarGameObject, generatedMeshes, folderPath);
 
 
             return true;
@@ -233,250 +224,6 @@ namespace ops_dev.Editor.Builders {
             return meshObj;
         }
 
-        //Search through avatar descriptor for animation controllers    
-        private void RetargetAnimations(GameObject avatar, Dictionary<OpsOrifice, GameObject> generatedMeshes, string savePath)
-        {
-            VRCAvatarDescriptor descriptor = avatar.GetComponent<VRCAvatarDescriptor>();
-            if (descriptor == null) return;
-
-            bool descriptorModified = false;
-
-            // Base Animation Layers
-            if (descriptor.customizeAnimationLayers)
-            {
-                for (int i = 0; i < descriptor.baseAnimationLayers.Length; i++)
-                {
-                    if (!descriptor.baseAnimationLayers[i].isDefault && descriptor.baseAnimationLayers[i].animatorController != null)
-                    {
-                        RuntimeAnimatorController newController = ProcessController(descriptor.baseAnimationLayers[i].animatorController, avatar, generatedMeshes, savePath);
-                        if (newController != descriptor.baseAnimationLayers[i].animatorController)
-                        {
-                            descriptor.baseAnimationLayers[i].animatorController = newController;
-                            descriptorModified = true;
-                        }
-                    }
-                }
-                for (int i = 0; i < descriptor.specialAnimationLayers.Length; i++)
-                {
-                    if (!descriptor.specialAnimationLayers[i].isDefault && descriptor.specialAnimationLayers[i].animatorController != null)
-                    {
-                        RuntimeAnimatorController newController = ProcessController(descriptor.specialAnimationLayers[i].animatorController, avatar, generatedMeshes, savePath);
-                        if (newController != descriptor.specialAnimationLayers[i].animatorController)
-                        {
-                            descriptor.specialAnimationLayers[i].animatorController = newController;
-                            descriptorModified = true;
-                        }
-                    }
-                }
-            }
-
-
-
-            if (descriptorModified)
-            {
-                EditorUtility.SetDirty(descriptor);
-            }
-        }
-
-        private RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, GameObject avatar, Dictionary<OpsOrifice, GameObject> generatedMeshes, string savePath)
-        {
-            // Get the path of the original controller
-            string oldAssetPath = AssetDatabase.GetAssetPath(originalController);
-            if (string.IsNullOrEmpty(oldAssetPath))
-            {
-                Debug.LogWarning($"[OpsOrificeBuilder] Cannot duplicate controller {originalController.name} because it is not saved as an asset.");
-                return originalController;
-            }
-
-            // Copy the controller asset
-            string newControllerPath = Path.Combine(savePath, originalController.name + "_OpsDuplicate_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".controller").Replace("\\", "/");
-            if (!AssetDatabase.CopyAsset(oldAssetPath, newControllerPath))
-            {
-                Debug.LogError($"[OpsOrificeBuilder] Failed to copy Animator Controller from {oldAssetPath} to {newControllerPath}");
-                return originalController;
-            }
-
-            // Load the new duplicate controller
-            AnimatorController duplicatedController = AssetDatabase.LoadAssetAtPath<AnimatorController>(newControllerPath);
-            if (duplicatedController == null) return originalController;
-
-            //process new controller
-            Dictionary<AnimationClip, AnimationClip> clipReplacements = new Dictionary<AnimationClip, AnimationClip>();
-
-            // Find and duplicate any clips that need modifications
-            foreach (AnimationClip clip in duplicatedController.animationClips)
-            {
-                if (clip == null || clipReplacements.ContainsKey(clip)) continue;
-
-                AnimationClip modifiedClip = ProcessClip(clip, avatar, generatedMeshes, savePath);
-                if (modifiedClip != null)
-                {
-                    clipReplacements.Add(clip, modifiedClip);
-                }
-            }
-
-            // If no clips were modified, we don't need to duplicate the controller
-            if (clipReplacements.Count == 0){
-                //Debug.LogWarning($"[OpsPenetratorBuilder] No clip replacements found");
-                return originalController;
-            }
-
-            // Traverse the duplicate and replace all old motions with the new retargeted ones
-            foreach (AnimatorControllerLayer layer in duplicatedController.layers)
-            {
-                ReplaceClipsInStateMachine(layer.stateMachine, clipReplacements);
-            }
-
-            EditorUtility.SetDirty(duplicatedController);
-            AssetDatabase.SaveAssets();
-
-            return duplicatedController;
-        }
-
-        //Check and process each animation clip
-        private AnimationClip ProcessClip(AnimationClip originalClip, GameObject avatar, Dictionary<OpsOrifice, GameObject> generatedMeshes, string savePath)
-        {
-            EditorCurveBinding[] bindings = AnimationUtility.GetCurveBindings(originalClip);
-            bool clipNeedsModification = false;
-
-            foreach (var binding in bindings)
-            {
-                if (binding.type == typeof(OpsOrifice))
-                {
-                    clipNeedsModification = true;
-                    break;
-                }
-            }
-
-            if (!clipNeedsModification) return null;
-
-            // Clone the clip non-destructively
-            AnimationClip newClip = new AnimationClip();
-            EditorUtility.CopySerialized(originalClip, newClip);
-            newClip.name = originalClip.name + "_OpsRetargeted";
-
-            bindings = AnimationUtility.GetCurveBindings(newClip);
-            foreach (var binding in bindings)
-            {
-                if (binding.type == typeof(OpsOrifice))
-                {
-                    Transform targetTransform = string.IsNullOrEmpty(binding.path) ? avatar.transform : avatar.transform.Find(binding.path);
-                    
-                    if (targetTransform != null)
-                    {
-                        OpsOrifice targetOrifice = targetTransform.GetComponent<OpsOrifice>();
-                        if (targetOrifice != null && generatedMeshes.ContainsKey(targetOrifice))
-                        {
-                            GameObject generatedMesh = generatedMeshes[targetOrifice];
-                            
-                            string newPropName = MapOrificePropertyToShader(binding.propertyName);
-                            if (!string.IsNullOrEmpty(newPropName))
-                            {
-                                string targetPath = AnimationUtility.CalculateTransformPath(generatedMesh.transform, avatar.transform);
-                                EditorCurveBinding newBinding;
-                                
-                                newBinding = EditorCurveBinding.FloatCurve(targetPath, typeof(SkinnedMeshRenderer), newPropName);
-                                
-                                // Swap the curve over
-                                AnimationCurve curve = AnimationUtility.GetEditorCurve(newClip, binding);
-                                AnimationUtility.SetEditorCurve(newClip, binding, null); // Remove old
-                                AnimationUtility.SetEditorCurve(newClip, newBinding, curve); // Apply new
-                            }
-                        }
-                    }
-                }
-            }
-
-            string clipPath = Path.Combine(savePath, newClip.name + "_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + newClip.GetInstanceID() + ".anim").Replace("\\", "/");
-            AssetDatabase.CreateAsset(newClip, clipPath);
-            return newClip;
-        }
-
-        private string MapOrificePropertyToShader(string propertyName)
-        {
-            switch (propertyName)
-            {
-                case "holeType": return "material._HoleType";
-                case "holeEntryDirection": return "material._HoleEntryDirection";
-                case "holeCenter": return "material._HoleCenterAlignment";
-                case "hashSeed": return "material._HASH_SEED";
-                case "hashSeedAviId": return "material._HASH_SEED_AVI_ID";
-                case "disableHoleRecursion": return "material._DISABLE_HOLE_RECURSION";
-                case "opsAvoidOnSelf": return "material._OPS_AVOID_ON_SELF";
-                case "opsAvoidSelfMask": return "material._OPS_AVOID_SELF_MASK";
-                case "opsShrinkPathSegments": return "material._OPS_PATH_HIDE_SEGMENTS";
-                case "ops_channel": return "material._OPS_CHANNEL_ID";
-                case "ops_sps_dps_lightsource_backup": return "material._OPS_LIGHTSOURCE_BACKUP_EXISTS";
-                default: return null;
-            }
-        }
-
-        // Recursively searches state machines for animations and blend trees
-        private void ReplaceClipsInStateMachine(AnimatorStateMachine sm, Dictionary<AnimationClip, AnimationClip> replacements)
-        {
-            if (sm == null) return;
-
-            foreach (ChildAnimatorState childState in sm.states)
-            {
-                ReplaceClipInMotion(childState.state, replacements);
-            }
-
-            foreach (ChildAnimatorStateMachine childSm in sm.stateMachines)
-            {
-                ReplaceClipsInStateMachine(childSm.stateMachine, replacements);
-            }
-        }
-        
-        // Checks individual states to swap clips or dive into blend trees
-        private void ReplaceClipInMotion(AnimatorState state, Dictionary<AnimationClip, AnimationClip> replacements)
-        {
-            if (state.motion == null) return;
-
-            if (state.motion is AnimationClip clip)
-            {
-                if (replacements.TryGetValue(clip, out AnimationClip newClip))
-                {
-                    state.motion = newClip;
-                }
-            }
-            else if (state.motion is BlendTree tree)
-            {
-                ReplaceClipsInBlendTree(tree, replacements);
-            }
-        }
-
-        // Recursively searches Blend Trees (since Blend Trees can be nested inside Blend Trees)
-        private void ReplaceClipsInBlendTree(BlendTree tree, Dictionary<AnimationClip, AnimationClip> replacements)
-        {
-            if (tree == null) return;
-
-            ChildMotion[] children = tree.children;
-            bool modified = false;
-
-            for (int i = 0; i < children.Length; i++)
-            {
-                if (children[i].motion is AnimationClip clip)
-                {
-                    if (replacements.TryGetValue(clip, out AnimationClip newClip))
-                    {
-                        children[i].motion = newClip;
-                        modified = true;
-                    }
-                }
-                else if (children[i].motion is BlendTree childTree)
-                {
-                    ReplaceClipsInBlendTree(childTree, replacements);
-                    modified = true; // Safe to assume we should reapply children if we went deeper
-                }
-            }
-
-            if (modified)
-            {
-                tree.children = children; // Reassigning the array is required to save changes in Unity
-                EditorUtility.SetDirty(tree);
-            }
-        }
-
     }
 }
-#endif
+//#endif

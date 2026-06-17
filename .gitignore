@@ -63,3 +63,4 @@ Assets/PackageMakerWindowData.asset*
 .idea
 
 Assets/**
+Packages/com.cubic.ops-dev/Runtime/ops_generated/**

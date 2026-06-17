@@ -1,9 +1,10 @@
-#if UNITY_EDITOR
+//#if UNITY_EDITOR
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using VRC.SDKBase.Editor.BuildPipeline;
 using ops_dev.Components;
+using UnityEditor;
 
 namespace ops_dev.Editor.Builders {
     public class ops_initial_build : IVRCSDKPreprocessAvatarCallback
@@ -12,9 +13,18 @@ namespace ops_dev.Editor.Builders {
 
         public bool OnPreprocessAvatar(GameObject avatarGameObject)
         {
+            //Makes sure that the ops avatar base component exists / is created.
+            //This component contains the materials for clearing the frame buffer, reading the ops grab passes and then clearing the frame buffer again.
+            //in vrchat, it is essentially hidden unless the world has no backdrop / background being rendered over it in the render queue
+            //Screen is overwriten as black again after so that ops data does not appear in cutout mirrors
+
+            //Also contains the component that writes the ops avatar ID, and is used as the gameobject that the other ops components use to get the avatar ID.
+            //basically holds stuff that is shared between ops components
+
             OpsPenetrator[] penetrators = avatarGameObject.GetComponentsInChildren<OpsPenetrator>(true);
             OpsOrifice[] orifices = avatarGameObject.GetComponentsInChildren<OpsOrifice>(true);
 
+            //Check if ops is in use at all on this avatar
             if(penetrators.Length == 0 && orifices.Length == 0){
                 return true;
             }
@@ -30,9 +40,21 @@ namespace ops_dev.Editor.Builders {
                 ops_component = ops_components[0];
             }
             else{
-                GameObject component_object = new GameObject("ops_Avatar_Base");
+                GameObject component_object = new GameObject("ops_Avatar_Base_Component");
                 component_object.transform.SetParent(avatarGameObject.transform, false);
                 ops_component = component_object.AddComponent<OpsAvatarComponent>();
+                ops_component.clear_screen_1 = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.cubic.ops-dev/Runtime/materials/clear_1.mat");
+                ops_component.clear_screen_2 = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.cubic.ops-dev/Runtime/materials/clear_2.mat");
+                ops_component.grab_ops_id_mat = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.cubic.ops-dev/Runtime/materials/ops_grab_ID.mat");
+                ops_component.grab_ops_data_mat = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.cubic.ops-dev/Runtime/materials/ops_grab_data.mat");
+                if (ops_component.clear_screen_1 == null || 
+                    ops_component.clear_screen_2 == null || 
+                    ops_component.grab_ops_id_mat == null || 
+                    ops_component.grab_ops_data_mat == null)
+                {
+                    Debug.LogError("Failed trying to load asset");
+                    return false;
+                }
             }
 
 
@@ -48,11 +70,21 @@ namespace ops_dev.Editor.Builders {
                 }
             }
 
-            //Generate the base if it wasn't found
+            //Generate the base ID writer if it wasn't found
             if(avatar_ID_Base == null)
             {
                 //Add the OpsIDWriter component to the ops_component's game object
                 avatar_ID_Base = ops_component.gameObject.AddComponent<OpsIDWriter>();
+
+                avatar_ID_Base.mesh = AssetDatabase.LoadAssetAtPath<Mesh>("Packages/com.cubic.ops-dev/Runtime/meshes/12Vert_OpsMesh_skinned.asset");
+                avatar_ID_Base.material = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.cubic.ops-dev/Runtime/materials/ops_id_writer.mat");
+
+                if (avatar_ID_Base.mesh == null || 
+                    avatar_ID_Base.material == null)
+                {
+                    Debug.LogError("Failed trying to load asset");
+                    return false;
+                }
                 
                 //Set it to Avatar ID space
                 avatar_ID_Base.idSpace = OpsIDWriter.IDSpace.avatar; 
@@ -60,9 +92,11 @@ namespace ops_dev.Editor.Builders {
             //Assign a random integer for the AviID hash
             avatar_ID_Base.hashSeed = Random.Range(0, int.MaxValue);
 
+            ops_component.gameObject.SetActive(false);
+
             // Return true to allow the build process to continue
             return true; 
         }
     }
 }
-#endif
+//#endif

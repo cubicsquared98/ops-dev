@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+//#if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -13,8 +13,15 @@ namespace ops_dev.Editor.Builders {
     {
         public int callbackOrder => -99;
 
-        public bool OnPreprocessAvatar(GameObject avatarGameObject)
+        public bool OnPreprocessAvatar(GameObject avatarGameObject){
+            return BuildFinalOps(avatarGameObject);
+        }
+
+
+        public static bool BuildFinalOps(GameObject avatarGameObject)
         {
+            //Finds the base avatar ID component, and adds the ID and data grabs, and screen clear material / shaders to it.
+
             OpsIDWriter[] writers = avatarGameObject.GetComponentsInChildren<OpsIDWriter>(true);
             OpsIDWriter avatar_ID_Base = null; // Holds transform and hashID to use for avi
 
@@ -49,7 +56,6 @@ namespace ops_dev.Editor.Builders {
             }
 
             //Find the SMR that belongs to this 
-
             SkinnedMeshRenderer avatar_id_writer = avatar_ID_Base.GetComponentInChildren<SkinnedMeshRenderer>(true);
             if(avatar_id_writer == null){
                 Debug.LogError("[OpsFinalBuilder] Build Failed: failed to find SMR on avi base component");
@@ -66,10 +72,17 @@ namespace ops_dev.Editor.Builders {
 
             avatar_id_writer.SetSharedMaterials(currentMaterials);
 
-            //Need to make animations so that grab_ops_id_mat and grab_ops_data_mat are toggled individually, instead of at the same time
+            //Find all the gameobjects that include ops penetrator, ops orifice components
+            //Find animations that toggle those game objects
+            //Add a toggle of the avatar base component to each of these
+
+
+
+            //Could make animations so that grab_ops_id_mat and grab_ops_data_mat are toggled individually, instead of at the same time.
+            //This was initialy an idea to lesson the amount of game freezing that happens on initial loading of grabpasses, but isnt much an issue anymore. Was actually from having a large geom shader on a large object causing the issue.
             return true;
         }
     }
 }
 
-#endif
+//#endif

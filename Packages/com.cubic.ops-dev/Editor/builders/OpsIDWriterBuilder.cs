@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+//#if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -13,11 +13,16 @@ namespace ops_dev.Editor.Builders {
 
         public bool OnPreprocessAvatar(GameObject avatarGameObject)
         {
+            //Sets up smr for all ID writers, and makes an animation to set the material properties for each of them.
+            //This way only 1 actual material + mesh is needed for all the ID writers, just makes things less cluttered.
+
             OpsIDWriter[] writers = avatarGameObject.GetComponentsInChildren<OpsIDWriter>(true);
             return BuildOpsIDWriters(avatarGameObject, writers);
         }
 
         public static bool BuildOpsIDWriters(GameObject avatarGameObject, OpsIDWriter[] writers){
+
+            //Check if any ops ID writers exist on this avatar
             if (writers.Length == 0) return true;
 
             string folderPath = "Packages/com.cubic.ops-dev/Runtime/ops_generated";
@@ -37,7 +42,7 @@ namespace ops_dev.Editor.Builders {
                     continue;
                 }
 
-                GameObject child = new GameObject("OpsID_Render");
+                GameObject child = new GameObject("OpsID_Renderer");
                 child.transform.SetParent(writer.transform, false);
                 child.transform.localPosition = Vector3.zero;
                 child.transform.localRotation = Quaternion.identity;
@@ -65,7 +70,6 @@ namespace ops_dev.Editor.Builders {
                 AnimationUtility.SetEditorCurve(masterClip, EditorCurveBinding.FloatCurve(path, typeof(SkinnedMeshRenderer), "material._ID_SPACE"), AnimationCurve.Constant(0f, 1f/60f, (float)writer.idSpace));
                 AnimationUtility.SetEditorCurve(masterClip, EditorCurveBinding.FloatCurve(path, typeof(SkinnedMeshRenderer), "material._HASH_SEED"), AnimationCurve.Constant(0f, 1f/60f, writer.hashSeed));
 
-            // Object.DestroyImmediate(writer);
             }
 
             AssetDatabase.CreateAsset(masterClip, $"{folderPath}/{clipName}.anim");
@@ -121,4 +125,4 @@ namespace ops_dev.Editor.Builders {
         }
     }
 }
-#endif
+//#endif

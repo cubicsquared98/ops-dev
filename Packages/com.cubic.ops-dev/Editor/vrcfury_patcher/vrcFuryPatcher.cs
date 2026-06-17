@@ -9,7 +9,6 @@ namespace ops_dev.patchers
         [MenuItem("Tools/ops-dev/Apply VRCFury ops Patch")]
         public static void ApplyPatch()
         {
-            // Default path when installed locally in the project
             string packagePath = Path.GetFullPath("Packages/com.vrcfury.vrcfury");
             
             if (!Directory.Exists(packagePath))
