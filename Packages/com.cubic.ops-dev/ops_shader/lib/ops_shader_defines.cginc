@@ -1,5 +1,6 @@
 //THIS IS A TEST. DO NOT REDISTRIBUTE.
 #define offset_Orafice_ID_BitWise_Booleans 0
+//4 uints, uint4(enabled, lightsource_backup, _DISABLE_HOLE_RECURSION, _Orafice_avoid_on_self)
 #define offset_Orafice_world_pos 1
 #define offset_Orafice_world_forward_vec 4
 #define offset_Orafice_world_up_vec 7
@@ -15,17 +16,15 @@
 #define offset_Orafice_world_up_vec_z 9
 
 #define offset_Orafice_ops_type 10
-#define offset_Orafice_ops_disable_recursion 11
 
-#define offset_Orafice_channel_id 12
-#define offset_Orafice_avatar_id 13
-#define offset_Orafice_avoid_on_self 14
-#define offset_Orafice_avoid_on_self_mask 15
+#define offset_Orafice_channel_id 11
+#define offset_Orafice_avatar_id 12
+#define offset_Orafice_avoid_on_self_mask 13
 
-#define offset_Orafice_dynamic_Path_Count 16
+#define offset_Orafice_dynamic_Path_Count 14
 
 
-#define Total_Orafice_Written_Values 17
+#define Total_Orafice_Written_Values 15
 
 #define dynamic_offset_Orafice_Per_Path 10
 #define dynamic_offset_Orafice_Path_x 0

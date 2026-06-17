@@ -4,10 +4,6 @@
 #include "sps_bake.cginc"
 #include "sps_utils.cginc"
 
-// #include "lib/ops_shader_defines.cginc"
-// #include "lib/ops_shader_reader_lib.cginc"
-// #include "lib/ops_id.cginc"
-
 #include "../../com.cubic.ops-dev/ops_shader/lib/ops_shader_defines.cginc"
 #include "../../com.cubic.ops-dev/ops_shader/lib/ops_shader_reader_lib.cginc"
 #include "../../com.cubic.ops-dev/ops_shader/lib/ops_id.cginc"
@@ -29,7 +25,8 @@ void ops_search_all(inout float3 orificeRootLocal, inout float3 orificeRootNorma
 	inout uint path_count, inout int path_end,
 	inout uint within_range_valueIDs[32], inout uint within_range_index, inout uint within_range_used_values,
 	uint self_avatar_id, int avoid_on_self_mask, int channel_id,
-	float3 searchFrom, float3 searchNormal, float search_to_distance
+	float3 searchFrom, float3 searchNormal, float search_to_distance,
+	out bool allowLightSourcesInRecursion
 ){
 	float3 read_data = readDataFrom_ID_TEX(uint2(0,0)); //Read from the bottom left of the screen. Max ID overlaps occur here, gives the amount of orifices.
 
@@ -44,15 +41,19 @@ void ops_search_all(inout float3 orificeRootLocal, inout float3 orificeRootNorma
 	float search_to_distance_sq = search_to_distance*search_to_distance;
 	float overrun_distance_sq = search_to_distance_sq * 0.03125;
 
+	bool Closest_allow_recursion = true;
+	allowLightSourcesInRecursion = false;
+
 	for(int i = 1; i <= Total_Ids; i++){ //0 cannot be an ID
-		const float isActive = round(readInlineFloatData(offset_Orafice_ID_BitWise_Booleans, i));
+		const uint4 Actives = UnpackFloat4ToUint4(readDataFrom(float2(offset_Orafice_ID_BitWise_Booleans, i)));
+		//const float isActive = round(readInlineFloatData(offset_Orafice_ID_BitWise_Booleans, i));
 		//Check if is on the same avatar and set to avoid on self
-		const uint avoid_on_self = uint(round(readInlineUintData(offset_Orafice_avoid_on_self, i)));
+		const uint avoid_on_self = Actives.w;// uint(round(readInlineUintData(offset_Orafice_avoid_on_self, i)));
 		const uint avatar_ID = uint(round(readInlineUintData(offset_Orafice_avatar_id, i)));
 		const int avoid_on_self_mask_other = int(round(readInlineFloatData(offset_Orafice_avoid_on_self_mask, i)));
 		const float channel_ID = round(readInlineFloatData(offset_Orafice_channel_id, i));
 
-		if	((isActive < 1)
+		if	((Actives.x < 1)
 			|| (channel_id != -1 && channel_id != int(channel_ID))
 			|| (self_avatar_id != 0 && avatar_ID == self_avatar_id && (avoid_on_self == 1 || avoid_on_self_mask == avoid_on_self_mask_other && avoid_on_self_mask != -1)))
 		{
@@ -99,6 +100,8 @@ void ops_search_all(inout float3 orificeRootLocal, inout float3 orificeRootNorma
 				orifice_types = local_orifice_types;
 				path_count = PathCount;
 				path_end = p;
+				Closest_allow_recursion = Actives.z; //Needs buffering till the actual closest is found, as its an && process for the output
+				allowLightSourcesInRecursion = !bool(Actives.y); //If there is a lightsource backup inside of this ops component, dont allow searching for light sources in the next iterations
 			}
 
 			within_range_valueIDs[within_range_index] = within_range_index == MaxIndex_31 ? i : within_range_valueIDs[within_range_index];
@@ -120,7 +123,7 @@ void ops_search_all(inout float3 orificeRootLocal, inout float3 orificeRootNorma
 		const uint read_location = (path_count > 0 && path_end == 1) ? (path_count - 1) * dynamic_offset_Orafice_Per_Path + Total_Orafice_Written_Values + dynamic_offset_Orafice_Path_forward_vec_x : offset_Orafice_world_forward_vec;
 		orificeRootNormal = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location, found_orifice_id)));
 		orificeRootUp = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location + 3, found_orifice_id))); //Just add 3
-		allow_recursion = allow_recursion && (round(readInlineUintData(offset_Orafice_ops_disable_recursion, found_orifice_id) < 0.5));
+		allow_recursion = allow_recursion && Closest_allow_recursion;
 		
 	}
 	else{
@@ -172,7 +175,8 @@ void ops_search_within_found_range(inout float3 orificeRootLocal, inout float3 o
 	inout int found_orifice_id, inout uint4 orifice_types, inout bool allow_recursion, 
 	inout uint path_count, inout int path_end,
 	uint within_range_valueIDs[32], uint within_range_index, inout uint within_range_used_values,
-	float3 searchFrom, float3 searchNormal, float search_to_distance
+	float3 searchFrom, float3 searchNormal, float search_to_distance,
+	inout bool allowLightSourcesInRecursion
 ){
 	//within_range_index has a max value of 31
 	int Total_Ids = _OPS_TextureExists() ? within_range_index : 0; //If no ops, fallback to sps
@@ -240,13 +244,15 @@ void ops_search_within_found_range(inout float3 orificeRootLocal, inout float3 o
 		const uint read_location = (path_count > 0 && path_end == 1) ? (path_count - 1) * dynamic_offset_Orafice_Per_Path + Total_Orafice_Written_Values + dynamic_offset_Orafice_Path_forward_vec_x : offset_Orafice_world_forward_vec;
 		orificeRootNormal = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location, found_orifice_id)));
 		orificeRootUp = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location + 3, found_orifice_id))); //Just add 3
-		allow_recursion = allow_recursion && (readInlineUintData(offset_Orafice_ops_disable_recursion, found_orifice_id) < 0.5);
+		uint4 actives = UnpackFloat4ToUint4(readDataFrom(float2(offset_Orafice_ID_BitWise_Booleans, i)));
+		allow_recursion = allow_recursion && bool(actives.z);
+		allowLightSourcesInRecursion = allowLightSourcesInRecursion && !bool(actives.x);
+
+		//allow_recursion = allow_recursion && (readInlineUintData(offset_Orafice_ops_disable_recursion, found_orifice_id) < 0.5);
 		
 	}
 	//Small check to make sure that the previous orifice found has an ID meaning it is an ops orifice not a dps/sps only orifice
-	//--Disabled for recursive hole search. This is so that fallback light source orifices wont be recursivly found after passing an ops component--
-	//TODO: add in an orifice check, so that can know if there is a backup light source at it
-	else if (found_orifice_id != -1){
+	else if (found_orifice_id != -1 && allowLightSourcesInRecursion){
 		//Backup search for light source using sps logic
 		int sps_orifice_type = SPS_TYPE_INVALID;
 		sps_light_search_only(searchFrom, orificeRootNormal, orificeRootLocal, sps_orifice_type);
@@ -786,7 +792,9 @@ void ops_apply(
 	float Dist_After_Hole_of_vert = bakedVertex.z;		//length along of this vert
 	float Remaining_Length_Of_Penetrator = length_z; 	//Whole length
 
-	const float holeRecessDistance = length_z * 0.05; //These keep the 
+	const float holeRecessDistance = length_z * 0.05; //These keep the
+
+	bool allowLightSourcesInRecursion = true; //This is set to false if we find an orifice that has a backup light source
 
 	for(int recursion_loop = 0; recursion_loop < _OPS_MAX_RECURSIVE_OPS; recursion_loop ++){
 		//continue to find next hole
@@ -816,7 +824,8 @@ void ops_apply(
 					path_count, path_end,
 					within_range_valueIDs, within_range_index, within_range_used_values,
 					self_avatar_id, avoid_on_self_mask, channel_id,
-					searchFrom, search_normal, search_to_distance
+					searchFrom, search_normal, search_to_distance,
+					allowLightSourcesInRecursion
 				);
 			}
 		}
@@ -830,7 +839,8 @@ void ops_apply(
 				found_orifice_id, searching_orifice_type, allow_recursion,
 				path_count, path_end,
 				within_range_valueIDs, within_range_index, within_range_used_values,
-				searchFrom, search_normal, search_to_distance
+				searchFrom, search_normal, search_to_distance,
+				allowLightSourcesInRecursion
 			);
 		}
 

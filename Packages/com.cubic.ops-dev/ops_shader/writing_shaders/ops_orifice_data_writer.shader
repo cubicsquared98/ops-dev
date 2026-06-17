@@ -176,9 +176,15 @@ Shader "cubic/ops/OpsOrifice_writer"
                         UNITY_ACCESS_INSTANCED_PROP(Props, _HoleCenterAlignment),
                         0
                     );
+                    uint4 Enables = uint4(
+                        1, //To say that ops is enabled here
+                        UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_LIGHTSOURCE_BACKUP_EXISTS), //To say if there is a light source backup here
+                        UNITY_ACCESS_INSTANCED_PROP(Props, _DISABLE_HOLE_RECURSION), //To say if recursion should be disabled
+                        UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_AVOID_ON_SELF) //To say if going to avoid interacting with self
+                    );
 
                     // Array holding our X, Y, and Z data
-                    values[offset_Orafice_ID_BitWise_Booleans] = PackToFloat4(1.0);
+                    values[offset_Orafice_ID_BitWise_Booleans] = PackToFloat4(Enables);
                     values[offset_Orafice_world_pos_x] = PackToFloat4(posToWrite.x);
                     values[offset_Orafice_world_pos_y] = PackToFloat4(posToWrite.y);
                     values[offset_Orafice_world_pos_z] = PackToFloat4(posToWrite.z);
@@ -189,10 +195,10 @@ Shader "cubic/ops/OpsOrifice_writer"
                     values[offset_Orafice_world_up_vec_y] = PackToFloat4(upDirToWrite.y);
                     values[offset_Orafice_world_up_vec_z] = PackToFloat4(upDirToWrite.z);
                     values[offset_Orafice_ops_type] = PackToFloat4(ops_types);
-                    values[offset_Orafice_ops_disable_recursion] = PackToFloat4(UNITY_ACCESS_INSTANCED_PROP(Props, _DISABLE_HOLE_RECURSION)); //UINT
+                    //values[offset_Orafice_ops_disable_recursion] = PackToFloat4(UNITY_ACCESS_INSTANCED_PROP(Props, _DISABLE_HOLE_RECURSION)); //UINT
                     values[offset_Orafice_channel_id] = PackToFloat4(float(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_CHANNEL_ID))); //INT -> converted to float for now
                     values[offset_Orafice_avatar_id] = PackToFloat4(AVATAR_ID); //UINT
-                    values[offset_Orafice_avoid_on_self] = PackToFloat4(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_AVOID_ON_SELF)); //UINT
+                    //values[offset_Orafice_avoid_on_self] = PackToFloat4(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_AVOID_ON_SELF)); //UINT
                     values[offset_Orafice_avoid_on_self_mask] = PackToFloat4(float(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_AVOID_SELF_MASK))); //INT -> converted to float for now
                     values[offset_Orafice_dynamic_Path_Count] = PackToFloat4(path_count); //UINT
 
