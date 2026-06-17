@@ -87,7 +87,7 @@ namespace ops_dev.Editor.Builders {
                 }
                 
                 //Set it to Avatar ID space
-                avatar_ID_Base.idSpace = OpsIDWriter.IDSpace.avatar; 
+                avatar_ID_Base.idSpace = OpsIDWriter.IDSpace.avatar;
             }
             //Assign a random integer for the AviID hash
             avatar_ID_Base.hashSeed = Random.Range(0, int.MaxValue);

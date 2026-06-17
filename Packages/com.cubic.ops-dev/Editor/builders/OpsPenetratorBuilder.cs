@@ -50,6 +50,9 @@ namespace ops_dev.Editor.Builders {
                 GameObject generatedMesh = CreateSkinnedTriangle(folderPath, avatar_ID_Base.transform, hashSeed, hashSeedAvi, penetrator);
                 generatedMeshes.Add(penetrator, new GameObject[] {generatedMesh, penetrator.penetratorMeshObject.gameObject});
 
+                //Should be disabled by default
+                penetrator.gameObject.SetActive(false);
+
             }
 
             AssetDatabase.SaveAssets();

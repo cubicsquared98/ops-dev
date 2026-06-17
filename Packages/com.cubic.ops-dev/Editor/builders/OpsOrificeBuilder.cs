@@ -50,6 +50,9 @@ namespace ops_dev.Editor.Builders {
                 //Puts together the gameobject for the ops orifice - also adding an ops ID writer to it
                 GameObject generatedMesh = CreateSkinnedTriangle(orifice.transform, folderPath, avatar_ID_Base.transform, orifice.opsOraficeWriter, hashSeed, hashSeedAvi, orifice);
                 generatedMeshes.Add(orifice, generatedMesh);
+
+                //Should be disabled by default
+                orifice.gameObject.SetActive(false);
             }
 
             AssetDatabase.SaveAssets();
