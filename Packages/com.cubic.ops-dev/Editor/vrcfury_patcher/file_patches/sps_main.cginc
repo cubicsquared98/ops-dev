@@ -899,12 +899,6 @@ void ops_apply(
 			path_count = 0;
 			allow_recursion = false;
 			break;
-			// apply_deformations(vertex, normal, tangent,
-			// 	1, dumbLerp, //No shrink, dumblerp
-			// 	bezierPos, bezierRight, bezierUp, bezierForward,
-			// 	bakedVertex, bakedNormal, bakedTangent
-			// );
-			// return;
 		}
 		
 		
@@ -955,13 +949,6 @@ void ops_apply(
 						allow_recursion = false;
 						break_out = true;
 						break;
-						// //This vertex is within this path segment. We apply vertex tranforms and end here.
-						// apply_deformations(vertex, normal, tangent,
-						// 	1 - hide_path, 1, //No shrink, all lerp
-						// 	bezierPos, bezierRight, bezierUp, bezierForward,
-						// 	bakedVertex, bakedNormal, bakedTangent
-						// );
-						// return;
 						
 					}
 					
@@ -1027,13 +1014,6 @@ void ops_apply(
 						allow_recursion = false;
 						break_out = true;
 						break;
-						// //This vertex is within this path segment. We apply vertex tranforms and end here.
-						// apply_deformations(vertex, normal, tangent,
-						// 	1 - hide_path, 1, //No shrink, all lerp
-						// 	bezierPos, bezierRight, bezierUp, bezierForward,
-						// 	bakedVertex, bakedNormal, bakedTangent
-						// );
-						// return;
 
 					}
 
@@ -1080,13 +1060,6 @@ void ops_apply(
 					dumbLerp = 1;
 					allow_recursion = false;
 					break;
-					//This vertex is within this path segment. We apply vertex tranforms and end here.
-					// apply_deformations(vertex, normal, tangent,
-					// 	1 - hide_path, 1, //No shrink, all lerp
-					// 	bezierPos, bezierRight, bezierUp, bezierForward,
-					// 	bakedVertex, bakedNormal, bakedTangent
-					// );
-					// return;
 				}
 
 				
@@ -1158,7 +1131,7 @@ void ops_apply(
 	}
 
 	//IF vert is within 5% of penetrator length after base - change dumblerp to 0 -> 1; so that deformation is smooth across the boundry. This is to make a z-transformed penetrator smoother
-	//Disabled until a better option is found / isnt a super big issue
+	//Disabled until a better option is found / isnt really an issue if ops penetrator is set up right
 	// dumbLerp = min(dumbLerp, sps_saturated_map(
 	// 	bakedVertex.z,
 	// 	0,

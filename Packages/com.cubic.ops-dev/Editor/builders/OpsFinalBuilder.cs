@@ -90,14 +90,35 @@ namespace ops_dev.Editor.Builders {
             if (!AssetDatabase.IsValidFolder(savePath)) AssetDatabase.CreateFolder("Packages/com.cubic.ops-dev/Runtime", "Ops_Generated");
 
             string baseObjPath = AnimationUtility.CalculateTransformPath(ops_component.gameObject.transform, avatarGameObject.transform);
-            
-            
+
             //Target paths of ops components
             HashSet<string> targetOpsPaths = new HashSet<string>();
+
+            // Map to store explicit SPS target paths for Penetrators
+            Dictionary<string, string> targetToSpsPathMap = new Dictionary<string, string>();
+
             foreach (var pen in avatarGameObject.GetComponentsInChildren<OpsPenetrator>(true))
             {
-                targetOpsPaths.Add(AnimationUtility.CalculateTransformPath(pen.gameObject.transform, avatarGameObject.transform));
+                string penPath = AnimationUtility.CalculateTransformPath(pen.gameObject.transform, avatarGameObject.transform);
+                targetOpsPaths.Add(penPath);
+
+                // If an SPS component is assigned, calculate its path and store it
+                if (pen.sps_component_parent != null)
+                {
+                    Transform bakedSpsPlug = pen.sps_component_parent.Find("BakedSpsPlug");
+                    if (bakedSpsPlug != null)
+                    {
+                        string spsPath = AnimationUtility.CalculateTransformPath(bakedSpsPlug, avatarGameObject.transform);
+                        targetToSpsPathMap[penPath] = spsPath;
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[OpsFinalBuilder] Penetrator '{pen.gameObject.name}' has an SPS component parent assigned, but no child named 'BakedSpsPlug' was found.");
+                    }
+                }
             }
+            
+            
             foreach (var ori in avatarGameObject.GetComponentsInChildren<OpsOrifice>(true))
             {
                 targetOpsPaths.Add(AnimationUtility.CalculateTransformPath(ori.gameObject.transform, avatarGameObject.transform));
@@ -118,7 +139,7 @@ namespace ops_dev.Editor.Builders {
             {
                 if (!descriptor.baseAnimationLayers[i].isDefault && descriptor.baseAnimationLayers[i].animatorController != null)
                 {
-                    RuntimeAnimatorController newController = ProcessController(descriptor.baseAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, savePath);
+                    RuntimeAnimatorController newController = ProcessController(descriptor.baseAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToSpsPathMap, savePath);
                     if (newController != descriptor.baseAnimationLayers[i].animatorController)
                     {
                         descriptor.baseAnimationLayers[i].animatorController = newController;
@@ -130,7 +151,7 @@ namespace ops_dev.Editor.Builders {
             {
                 if (!descriptor.specialAnimationLayers[i].isDefault && descriptor.specialAnimationLayers[i].animatorController != null)
                 {
-                    RuntimeAnimatorController newController = ProcessController(descriptor.specialAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, savePath);
+                    RuntimeAnimatorController newController = ProcessController(descriptor.specialAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToSpsPathMap, savePath);
                     if (newController != descriptor.specialAnimationLayers[i].animatorController)
                     {
                         descriptor.specialAnimationLayers[i].animatorController = newController;
@@ -146,7 +167,7 @@ namespace ops_dev.Editor.Builders {
             return true;
         }
 
-        private static RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, string baseObjPath, HashSet<string> targetOpsPaths, string savePath)
+        private static RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, string baseObjPath, HashSet<string> targetOpsPaths, Dictionary<string, string> targetToSpsPathMap, string savePath)
         {
             string oldAssetPath = AssetDatabase.GetAssetPath(originalController);
             if (string.IsNullOrEmpty(oldAssetPath)) return originalController;
@@ -174,13 +195,71 @@ namespace ops_dev.Editor.Builders {
 
             if (duplicatedController == null) return originalController;
 
+
+            //Scan all clips to find every single GameObject path that gets toggled in this controller
+            HashSet<string> allAnimatedPaths = new HashSet<string>();
+            foreach (AnimationClip clip in duplicatedController.animationClips)
+            {
+                if (clip == null) continue;
+                foreach (var binding in AnimationUtility.GetCurveBindings(clip))
+                {
+                    if (binding.type == typeof(GameObject) && binding.propertyName == "m_IsActive")
+                    {
+                        allAnimatedPaths.Add(binding.path);
+                    }
+                }
+            }
+
+
+            //Find closest animated parent of each ops component OR sps component toggle
+            Dictionary<string, string> targetToClosestParentMap = new Dictionary<string, string>();
+            foreach (string targetPath in targetOpsPaths)
+            {
+                if (targetToSpsPathMap.TryGetValue(targetPath, out string spsPath))
+                {
+                    if (allAnimatedPaths.Contains(spsPath))
+                    {
+                        // SPS plug is animated! Use it definitively and skip the parent search.
+                        targetToClosestParentMap[targetPath] = spsPath;
+                        continue; 
+                    }
+                }
+
+                string closestParent = null;
+                int maxParentLength = -1;
+
+                foreach (string animPath in allAnimatedPaths)
+                {
+                    // Exact match or closest parent string
+                    if (animPath == targetPath)
+                    {
+                        closestParent = animPath;
+                        break; 
+                    }
+                    else if (animPath == "" || targetPath.StartsWith(animPath + "/"))
+                    {
+                        if (animPath.Length > maxParentLength)
+                        {
+                            closestParent = animPath;
+                            maxParentLength = animPath.Length;
+                        }
+                    }
+                }
+
+                if (closestParent != null)
+                {
+                    targetToClosestParentMap[targetPath] = closestParent;
+                }
+            }
+
+
             Dictionary<AnimationClip, AnimationClip> clipReplacements = new Dictionary<AnimationClip, AnimationClip>();
 
             foreach (AnimationClip clip in duplicatedController.animationClips)
             {
                 if (clip == null || clipReplacements.ContainsKey(clip)) continue;
 
-                AnimationClip modifiedClip = ProcessClip(clip, baseObjPath, targetOpsPaths, savePath);
+                AnimationClip modifiedClip = ProcessClip(clip, baseObjPath, targetToClosestParentMap, savePath);
                 if (modifiedClip != null)
                 {
                     clipReplacements.Add(clip, modifiedClip);
@@ -206,47 +285,63 @@ namespace ops_dev.Editor.Builders {
             return duplicatedController;
         }
 
-        private static AnimationClip ProcessClip(AnimationClip originalClip, string baseObjPath, HashSet<string> targetOpsPaths, string savePath)
+        private static AnimationClip ProcessClip(AnimationClip originalClip, string baseObjPath, Dictionary<string, string> targetToClosestParentMap, string savePath)
         {
             EditorCurveBinding[] bindings = AnimationUtility.GetCurveBindings(originalClip);
-            List<AnimationCurve> relevantCurves = new List<AnimationCurve>();
 
+
+            //Check if any of our mapped parents are animated in THIS specific clip
+            Dictionary<string, AnimationCurve> parentCurvesInClip = new Dictionary<string, AnimationCurve>();
             foreach (var binding in bindings)
             {
                 if (binding.type == typeof(GameObject) && binding.propertyName == "m_IsActive")
                 {
-                    //Contains is running on an array, finding and exact match with the animation binding path
-                    if (targetOpsPaths.Contains(binding.path))
+                    if (targetToClosestParentMap.ContainsValue(binding.path))
                     {
-                        relevantCurves.Add(AnimationUtility.GetEditorCurve(originalClip, binding));
+                        parentCurvesInClip[binding.path] = AnimationUtility.GetEditorCurve(originalClip, binding);
                     }
                 }
             }
 
-            if (relevantCurves.Count == 0) return null;
+            //If none of our globally-mapped parents are in this clip, do nothing
+            if (parentCurvesInClip.Count == 0) return null;
+
 
             AnimationClip newClip = new AnimationClip();
             EditorUtility.CopySerialized(originalClip, newClip);
-            
             newClip.name = originalClip.name + "_AndOpsBaseToggle";
 
+            //Assign the parent curves to the child components
+            foreach (var kvp in targetToClosestParentMap)
+            {
+                string targetPath = kvp.Key;
+                string parentPath = kvp.Value;
+
+                if (parentCurvesInClip.TryGetValue(parentPath, out AnimationCurve parentCurve))
+                {
+                    // Only apply if it's not already an exact match to avoid doubling up
+                    if (targetPath != parentPath)
+                    {
+                        EditorCurveBinding compBinding = EditorCurveBinding.FloatCurve(targetPath, typeof(GameObject), "m_IsActive");
+                        AnimationUtility.SetEditorCurve(newClip, compBinding, parentCurve);
+                    }
+                }
+            }
+
+            //If ANY mapped parent active in this clip evaluates > 0.5, turn on OpsAvatarComponent
             AnimationCurve baseCurve = new AnimationCurve();
             HashSet<float> keyframeTimes = new HashSet<float>();
 
-            foreach (var curve in relevantCurves)
+            foreach (var curve in parentCurvesInClip.Values)
             {
-                foreach (var key in curve.keys)
-                {
-                    keyframeTimes.Add(key.time);
-                }
+                foreach (var key in curve.keys) keyframeTimes.Add(key.time);
             }
 
             foreach (float time in keyframeTimes)
             {
                 float isActive = 0f;
-                foreach (var curve in relevantCurves)
+                foreach (var curve in parentCurvesInClip.Values)
                 {
-                    // If ANY ops component is active, activate the base
                     if (curve.Evaluate(time) > 0.5f)
                     {
                         isActive = 1f;
@@ -260,8 +355,11 @@ namespace ops_dev.Editor.Builders {
                 baseCurve.AddKey(stepKey);
             }
 
+
             EditorCurveBinding baseBinding = EditorCurveBinding.FloatCurve(baseObjPath, typeof(GameObject), "m_IsActive");
             AnimationUtility.SetEditorCurve(newClip, baseBinding, baseCurve);
+
+            newClip.name = newClip.name.Replace("/", "_");
 
             string clipPath = Path.Combine(savePath, newClip.name + "_" + System.DateTime.Now.Ticks.ToString() + ".anim").Replace("\\", "/");
             AssetDatabase.CreateAsset(newClip, clipPath);
