@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &3120645874049380006
+--- !u!1 &1745353332637704158
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,8 +8,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 3132379656914092355}
-  - component: {fileID: 7855074323064447522}
+  - component: {fileID: 1069280550708800227}
+  - component: {fileID: 266487370581388189}
   m_Layer: 0
   m_Name: Haptic Plug
   m_TagString: Untagged
@@ -17,34 +17,34 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &3132379656914092355
+--- !u!4 &1069280550708800227
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3120645874049380006}
+  m_GameObject: {fileID: 1745353332637704158}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 2935365214687746175}
+  m_Father: {fileID: 4370681823091239280}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7855074323064447522
+--- !u!114 &266487370581388189
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3120645874049380006}
+  m_GameObject: {fileID: 1745353332637704158}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2d4cd252f8c146639507ecd55bc2b48a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  version: 9
+  version: 10
   unityVersion: 2022.3.22f1
   vrcfuryVersion: 1.1340.0
   autoRenderer: 1
@@ -94,7 +94,7 @@ MonoBehaviour:
   references:
     version: 2
     RefIds: []
---- !u!1 &4815546756063953452
+--- !u!1 &2610358626875498841
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -102,48 +102,49 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2935365214687746175}
-  - component: {fileID: 3145418129817983269}
-  - component: {fileID: 8446229941531309080}
+  - component: {fileID: 4370681823091239280}
+  - component: {fileID: 8725068107577904613}
+  - component: {fileID: 7773124225400495342}
+  - component: {fileID: 5576178670815139545}
   m_Layer: 0
   m_Name: Actual Wholesome Lollipop
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!4 &2935365214687746175
+  m_IsActive: 1
+--- !u!4 &4370681823091239280
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4815546756063953452}
+  m_GameObject: {fileID: 2610358626875498841}
   serializedVersion: 2
   m_LocalRotation: {x: -0.022395918, y: -0, z: -0, w: 0.9997492}
-  m_LocalPosition: {x: 0.06789994, y: 0.0063999295, z: 0.1384}
-  m_LocalScale: {x: 1.5, y: 1.5000001, z: 1.5000001}
+  m_LocalPosition: {x: -0.87600005, y: 1.5156, z: 0.009599999}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
   m_ConstrainProportionsScale: 1
   m_Children:
-  - {fileID: 3132379656914092355}
-  - {fileID: 530747044318771236}
+  - {fileID: 1069280550708800227}
+  - {fileID: 3188592693369672575}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: -2.567, y: 0, z: 0}
---- !u!33 &3145418129817983269
+--- !u!33 &8725068107577904613
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4815546756063953452}
+  m_GameObject: {fileID: 2610358626875498841}
   m_Mesh: {fileID: 2614972334676695955, guid: 230c869252dce9e4e9c9b50c88367731, type: 3}
---- !u!23 &8446229941531309080
+--- !u!23 &7773124225400495342
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4815546756063953452}
+  m_GameObject: {fileID: 2610358626875498841}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -180,7 +181,102 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1 &9117950496844754273
+--- !u!114 &5576178670815139545
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2610358626875498841}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9e94e501a2d4c95bff3d5601013d923, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  version: 3
+  unityVersion: 2022.3.22f1
+  vrcfuryVersion: 1.1340.0
+  somethingIsBroken: 0
+  config:
+    features: []
+  content:
+    rid: 9200334554073923588
+  references:
+    version: 2
+    RefIds:
+    - rid: 4584190757286707212
+      type: {class: ObjectToggleAction, ns: VF.Model.StateAction, asm: VRCFury}
+      data:
+        version: 1
+        desktopActive: 0
+        androidActive: 0
+        localOnly: 0
+        remoteOnly: 0
+        obj: {fileID: 4361897726554770399}
+        mode: 0
+    - rid: 9200334554073923588
+      type: {class: Toggle, ns: VF.Model.Feature, asm: VRCFury}
+      data:
+        version: 3
+        name: ops/lollipop
+        state:
+          actions:
+          - rid: 9200334554073923589
+          - rid: 4584190757286707212
+        saved: 0
+        slider: 0
+        sliderInactiveAtZero: 0
+        securityEnabled: 0
+        defaultOn: 0
+        includeInRest: 0
+        exclusiveOffState: 0
+        enableExclusiveTag: 0
+        exclusiveTag: 
+        resetPhysbones: []
+        hasExitTime: 0
+        enableIcon: 0
+        icon:
+          version: 1
+          fileID: 0
+          guid: 
+          id: 
+          objRef: {fileID: 0}
+        enableDriveGlobalParam: 0
+        driveGlobalParam: 
+        separateLocal: 0
+        localState:
+          actions: []
+        hasTransition: 0
+        transitionStateIn:
+          actions: []
+        transitionStateOut:
+          actions: []
+        transitionTimeIn: 0
+        transitionTimeOut: 0
+        localTransitionStateIn:
+          actions: []
+        localTransitionStateOut:
+          actions: []
+        localTransitionTimeIn: 0
+        localTransitionTimeOut: 0
+        simpleOutTransition: 1
+        defaultSliderValue: 0
+        useGlobalParam: 0
+        globalParam: 
+        holdButton: 0
+        invertRestLogic: 0
+        expandIntoTransition: 1
+    - rid: 9200334554073923589
+      type: {class: ObjectToggleAction, ns: VF.Model.StateAction, asm: VRCFury}
+      data:
+        version: 1
+        desktopActive: 0
+        androidActive: 0
+        localOnly: 0
+        remoteOnly: 0
+        obj: {fileID: 2610358626875498841}
+        mode: 0
+--- !u!1 &4361897726554770399
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -188,50 +284,50 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 530747044318771236}
-  - component: {fileID: 5130855544883323981}
+  - component: {fileID: 3188592693369672575}
+  - component: {fileID: 6760716114102592618}
   m_Layer: 0
-  m_Name: OpsPenetrator_L1
+  m_Name: ops_penetrator_L1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &530747044318771236
+--- !u!4 &3188592693369672575
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9117950496844754273}
+  m_GameObject: {fileID: 4361897726554770399}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 2935365214687746175}
+  m_Father: {fileID: 4370681823091239280}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5130855544883323981
+--- !u!114 &6760716114102592618
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9117950496844754273}
+  m_GameObject: {fileID: 4361897726554770399}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bccd75764c48e9e4a8397d48338bf281, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  penetratorMeshObject: {fileID: 2935365214687746175}
-  sps_component_parent: {fileID: 3132379656914092355}
+  penetratorMeshObject: {fileID: 4370681823091239280}
+  sps_component_parent: {fileID: 1069280550708800227}
   ops_advanced_reparent_penetrator_data_mesh: {fileID: 0}
   length: 0.2680692
   radius: 0.02008249
   frot_mode: 0
-  penetratorGlowColor: {r: 0.31428552, g: 1, b: 0, a: 1}
-  emissionStrength: 0.617
+  penetratorGlowColor: {r: 0.5254902, g: 1, b: 0, a: 1}
+  emissionStrength: 0.498
   avoidOnSelfChannel: -1
   SelectedChannel: -1
   starting_index: 0
