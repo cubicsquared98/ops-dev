@@ -80,7 +80,7 @@ namespace ops_dev.Editor.Builders
                 return originalController;
             }
 
-            string newControllerPath = Path.Combine(savePath, originalController.name + "_OpsDuplicate_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".controller").Replace("\\", "/");
+            string newControllerPath = Path.Combine(savePath, originalController.name + "_OpsDuplicate_" + System.DateTime.Now.Ticks.ToString() + ".controller").Replace("\\", "/");
             if (!AssetDatabase.CopyAsset(oldAssetPath, newControllerPath))
             {
                 Debug.LogError($"[OpsAnimationRetargeter] Failed to copy Animator Controller from {oldAssetPath} to {newControllerPath}");
@@ -172,7 +172,7 @@ namespace ops_dev.Editor.Builders
                 }
             }
 
-            string clipPath = Path.Combine(savePath, newClip.name + "_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + newClip.GetInstanceID() + ".anim").Replace("\\", "/");
+            string clipPath = Path.Combine(savePath, newClip.name + "_" + System.DateTime.Now.Ticks.ToString() + "_" + newClip.GetInstanceID() + ".anim").Replace("\\", "/");
             AssetDatabase.CreateAsset(newClip, clipPath);
             UnityEditor.AssetDatabase.SaveAssets();
             return newClip;
@@ -227,7 +227,7 @@ namespace ops_dev.Editor.Builders
                 }
             }
 
-            string clipPath = Path.Combine(savePath, newClip.name + "_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + newClip.GetInstanceID() + ".anim").Replace("\\", "/");
+            string clipPath = Path.Combine(savePath, newClip.name + "_" + System.DateTime.Now.Ticks.ToString() + "_" + newClip.GetInstanceID() + ".anim").Replace("\\", "/");
             AssetDatabase.CreateAsset(newClip, clipPath);
             return newClip;
         }
@@ -273,7 +273,7 @@ namespace ops_dev.Editor.Builders
             }
         }
 
-        private static void ReplaceClipsInStateMachine(AnimatorStateMachine sm, Dictionary<AnimationClip, AnimationClip> replacements)
+        public static void ReplaceClipsInStateMachine(AnimatorStateMachine sm, Dictionary<AnimationClip, AnimationClip> replacements)
         {
             if (sm == null) return;
 
@@ -288,7 +288,7 @@ namespace ops_dev.Editor.Builders
             }
         }
 
-        private static void ReplaceClipInMotion(AnimatorState state, Dictionary<AnimationClip, AnimationClip> replacements)
+        public static void ReplaceClipInMotion(AnimatorState state, Dictionary<AnimationClip, AnimationClip> replacements)
         {
             bool stateModified = false;
             if (state.motion == null) return;
@@ -315,7 +315,7 @@ namespace ops_dev.Editor.Builders
             }
         }
 
-        private static bool ReplaceClipsInBlendTree(BlendTree tree, Dictionary<AnimationClip, AnimationClip> replacements)
+        public static bool ReplaceClipsInBlendTree(BlendTree tree, Dictionary<AnimationClip, AnimationClip> replacements)
         {
             if (tree == null) return false;
 
