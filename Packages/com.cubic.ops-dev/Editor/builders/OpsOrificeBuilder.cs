@@ -48,7 +48,7 @@ namespace ops_dev.Editor.Builders {
                 int hashSeedAvi = avatar_ID_Base.hashSeed;
 
                 //Puts together the gameobject for the ops orifice - also adding an ops ID writer to it
-                GameObject generatedMesh = CreateSkinnedTriangle(orifice.transform, folderPath, avatar_ID_Base.transform, orifice.opsOraficeWriter, hashSeed, hashSeedAvi, orifice);
+                GameObject generatedMesh = CreateSkinnedTriangle(orifice.ActiveTarget, folderPath, avatar_ID_Base.transform, orifice.opsOraficeWriter, hashSeed, hashSeedAvi, orifice);
                 generatedMeshes.Add(orifice, generatedMesh);
 
                 //Should be disabled by default
