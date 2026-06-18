@@ -204,16 +204,6 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 4584190757286707212
-      type: {class: ObjectToggleAction, ns: VF.Model.StateAction, asm: VRCFury}
-      data:
-        version: 1
-        desktopActive: 0
-        androidActive: 0
-        localOnly: 0
-        remoteOnly: 0
-        obj: {fileID: 4361897726554770399}
-        mode: 0
     - rid: 9200334554073923588
       type: {class: Toggle, ns: VF.Model.Feature, asm: VRCFury}
       data:
@@ -222,7 +212,6 @@ MonoBehaviour:
         state:
           actions:
           - rid: 9200334554073923589
-          - rid: 4584190757286707212
         saved: 0
         slider: 0
         sliderInactiveAtZero: 0
