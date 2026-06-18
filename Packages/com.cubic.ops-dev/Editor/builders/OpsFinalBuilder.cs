@@ -94,8 +94,8 @@ namespace ops_dev.Editor.Builders {
             //Target paths of ops components
             HashSet<string> targetOpsPaths = new HashSet<string>();
 
-            // Map to store explicit SPS target paths for Penetrators
-            Dictionary<string, string> targetToSpsPathMap = new Dictionary<string, string>();
+            // Map to store explicit target paths for Penetrators and Orifices (such as sps component toggles)
+            Dictionary<string, List<string>> targetToExplicitPathsMap = new Dictionary<string, List<string>>();
 
             foreach (var pen in avatarGameObject.GetComponentsInChildren<OpsPenetrator>(true))
             {
@@ -109,7 +109,7 @@ namespace ops_dev.Editor.Builders {
                     if (bakedSpsPlug != null)
                     {
                         string spsPath = AnimationUtility.CalculateTransformPath(bakedSpsPlug, avatarGameObject.transform);
-                        targetToSpsPathMap[penPath] = spsPath;
+                        targetToExplicitPathsMap[penPath] = new List<string> { spsPath };
                     }
                     else
                     {
@@ -117,12 +117,50 @@ namespace ops_dev.Editor.Builders {
                     }
                 }
             }
-            
-            
+
+
             foreach (var ori in avatarGameObject.GetComponentsInChildren<OpsOrifice>(true))
             {
-                targetOpsPaths.Add(AnimationUtility.CalculateTransformPath(ori.gameObject.transform, avatarGameObject.transform));
+                //The animations should act upon the ActiveTarget, since that's what the ops logic builds under.
+                //This will add two anims in for this if they are the same, but oh well.
+                string targetPath = AnimationUtility.CalculateTransformPath(ori.ActiveTarget, avatarGameObject.transform);
+                string oriPath = AnimationUtility.CalculateTransformPath(ori.gameObject.transform, avatarGameObject.transform);
+
+                targetOpsPaths.Add(targetPath);
+
+                List<string> priorityPaths = new List<string>();
+
+                //Check for BakedSpsSocket on active target
+                Transform socketChild = ori.ActiveTarget.Find("BakedSpsSocket");
+                //if (socketChild == null) socketChild = ori.gameObject.transform.Find("BakedSpsSocket");
+
+                //Check for BakedSpsSocket on parent of active target
+                if (socketChild == null && ori.ActiveTarget.parent != null) socketChild = ori.ActiveTarget.parent.Find("BakedSpsSocket");
+                //if (socketChild == null && ori.gameObject.transform.parent != null) socketChild = ori.gameObject.transform.parent.Find("BakedSpsSocket");
+
+                //If SPS Socket is found, it should take priority
+                if (socketChild != null)
+                {
+                    priorityPaths.Add(AnimationUtility.CalculateTransformPath(socketChild, avatarGameObject.transform));
+                }
+
+                //Add the actual ops orifice game object if its not the same as the active target
+                if (oriPath != targetPath)
+                {
+                    priorityPaths.Add(oriPath);
+                }
+
+                //And add the active target path itself
+                priorityPaths.Add(targetPath);
+
+                targetToExplicitPathsMap[targetPath] = priorityPaths;
             }
+            
+            
+            // foreach (var ori in avatarGameObject.GetComponentsInChildren<OpsOrifice>(true))
+            // {
+            //     targetOpsPaths.Add(AnimationUtility.CalculateTransformPath(ori.gameObject.transform, avatarGameObject.transform));
+            // }
 
             if(targetOpsPaths.Count < 1){
                 return true;
@@ -139,7 +177,7 @@ namespace ops_dev.Editor.Builders {
             {
                 if (!descriptor.baseAnimationLayers[i].isDefault && descriptor.baseAnimationLayers[i].animatorController != null)
                 {
-                    RuntimeAnimatorController newController = ProcessController(descriptor.baseAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToSpsPathMap, savePath);
+                    RuntimeAnimatorController newController = ProcessController(descriptor.baseAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToExplicitPathsMap, savePath);
                     if (newController != descriptor.baseAnimationLayers[i].animatorController)
                     {
                         descriptor.baseAnimationLayers[i].animatorController = newController;
@@ -151,7 +189,7 @@ namespace ops_dev.Editor.Builders {
             {
                 if (!descriptor.specialAnimationLayers[i].isDefault && descriptor.specialAnimationLayers[i].animatorController != null)
                 {
-                    RuntimeAnimatorController newController = ProcessController(descriptor.specialAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToSpsPathMap, savePath);
+                    RuntimeAnimatorController newController = ProcessController(descriptor.specialAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToExplicitPathsMap, savePath);
                     if (newController != descriptor.specialAnimationLayers[i].animatorController)
                     {
                         descriptor.specialAnimationLayers[i].animatorController = newController;
@@ -167,7 +205,7 @@ namespace ops_dev.Editor.Builders {
             return true;
         }
 
-        private static RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, string baseObjPath, HashSet<string> targetOpsPaths, Dictionary<string, string> targetToSpsPathMap, string savePath)
+        private static RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, string baseObjPath, HashSet<string> targetOpsPaths, Dictionary<string, List<string>> targetToExplicitPathsMap, string savePath)
         {
             string oldAssetPath = AssetDatabase.GetAssetPath(originalController);
             if (string.IsNullOrEmpty(oldAssetPath)) return originalController;
@@ -215,15 +253,24 @@ namespace ops_dev.Editor.Builders {
             Dictionary<string, string> targetToClosestParentMap = new Dictionary<string, string>();
             foreach (string targetPath in targetOpsPaths)
             {
-                if (targetToSpsPathMap.TryGetValue(targetPath, out string spsPath))
+                bool foundExplicit = false;
+                // Check priority paths first (SPS toggle > Component Path > Active Target Path)
+                if (targetToExplicitPathsMap.TryGetValue(targetPath, out List<string> explicitPaths))
                 {
-                    if (allAnimatedPaths.Contains(spsPath))
+                    foreach (string expPath in explicitPaths)
                     {
-                        // SPS plug is animated! Use it definitively and skip the parent search.
-                        targetToClosestParentMap[targetPath] = spsPath;
-                        continue; 
+                        if (allAnimatedPaths.Contains(expPath))
+                        {
+                            targetToClosestParentMap[targetPath] = expPath;
+                            foundExplicit = true;
+                            break;
+                        }
                     }
                 }
+
+                if (foundExplicit) continue;
+                //If no enable animation found, then we search for nearest parent that is enabled.
+                //Penetrator components should always have an sps component assigned to them, so they should have been caught by the above check.
 
                 string closestParent = null;
                 int maxParentLength = -1;
