@@ -597,6 +597,13 @@ void calculate_bezier_points(
 	//Gets a point on the bezier at distance Z for the vertex.
 	//Returns the length of the entire curve (start-end point), and the position of the bezier for this point
 	sps_bezierSolve_opt(p0, p1, p2, p3, distance_along_line, reference_up, curveLength, bezierPos, bezierForward, bezierUp);
+
+
+	//Force the upwards direction if passed the start, prevent rolling
+	lerp_amount = IsBehind(end_point, start_point, start_direction) ? 0 : sps_saturated_map(start_end_distance, 0, 0.002);
+
+	bezierUp = lerp(reference_up, bezierUp, lerp_amount);
+
 	bezierRight = sps_normalize(cross(bezierUp, bezierForward));
 }
 
