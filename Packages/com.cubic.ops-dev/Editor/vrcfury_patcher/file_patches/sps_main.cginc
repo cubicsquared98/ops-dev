@@ -100,7 +100,7 @@ void ops_search_all(inout float3 orificeRootLocal, inout float3 orificeRootNorma
 				orifice_types = local_orifice_types;
 				path_count = PathCount;
 				path_end = p;
-				Closest_allow_recursion = Actives.z; //Needs buffering till the actual closest is found, as its an && process for the output
+				Closest_allow_recursion = !bool(Actives.z); //Needs buffering till the actual closest is found, as its an && process for the output
 				allowLightSourcesInRecursion = !bool(Actives.y); //If there is a lightsource backup inside of this ops component, dont allow searching for light sources in the next iterations
 			}
 
@@ -245,7 +245,7 @@ void ops_search_within_found_range(inout float3 orificeRootLocal, inout float3 o
 		orificeRootNormal = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location, found_orifice_id)));
 		orificeRootUp = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location + 3, found_orifice_id))); //Just add 3
 		uint4 actives = UnpackFloat4ToUint4(readDataFrom(float2(offset_Orafice_ID_BitWise_Booleans, i)));
-		allow_recursion = allow_recursion && bool(actives.z);
+		allow_recursion = allow_recursion && !bool(actives.z);
 		allowLightSourcesInRecursion = allowLightSourcesInRecursion && !bool(actives.x);
 
 		//allow_recursion = allow_recursion && (readInlineUintData(offset_Orafice_ops_disable_recursion, found_orifice_id) < 0.5);
