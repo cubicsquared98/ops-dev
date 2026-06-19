@@ -1,4 +1,4 @@
 This will break every time that vrcfury is updated, so it will need patching again.
 This is only temporary while undergoing development, and I would prefer not to do it this way.
 
-goto Tools/opsVrcfuryPatcher
+goto Tools/opsVrcfuryPatcher or something like that
