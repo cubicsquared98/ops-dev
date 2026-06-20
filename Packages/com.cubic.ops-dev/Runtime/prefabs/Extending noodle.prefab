@@ -526,6 +526,7 @@ GameObject:
   - component: {fileID: 2768233415519610227}
   - component: {fileID: 8089096230052828848}
   - component: {fileID: 2393046524231791690}
+  - component: {fileID: 6785788692238887840}
   m_Layer: 0
   m_Name: Extending noodle
   m_TagString: Untagged
@@ -541,15 +542,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5402605253820242531}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.624092, y: -0.78135073, z: 0.00004296936, w: -0.0005605053}
-  m_LocalPosition: {x: -0.0296, y: 0.126, z: -0.0773}
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.049999993, y: 0.05000001, z: 0.049999997}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4316572083990432674}
   - {fileID: 8962393623299747007}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 179.956, y: -0.04699707, z: -102.76898}
+  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!95 &2768233415519610227
 Animator:
   serializedVersion: 5
@@ -598,7 +599,7 @@ MonoBehaviour:
       type: {class: Toggle, ns: VF.Model.Feature, asm: VRCFury}
       data:
         version: 3
-        name: nsfw/test pen 1
+        name: noodle/enable
         state:
           actions:
           - rid: 4681974967843946497
@@ -692,7 +693,7 @@ MonoBehaviour:
       type: {class: Toggle, ns: VF.Model.Feature, asm: VRCFury}
       data:
         version: 3
-        name: nsfw/in out
+        name: noodle/in out
         state:
           actions:
           - rid: 4681974967843946500
@@ -754,6 +755,89 @@ MonoBehaviour:
           id: 0636b2f9aa07a594699e59ad5af3d38b|Packages/com.cubic.ops-dev/Runtime/examples/extending
             noodle/InOut.anim
           objRef: {fileID: 7400000, guid: 0636b2f9aa07a594699e59ad5af3d38b, type: 2}
+--- !u!114 &6785788692238887840
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5402605253820242531}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9e94e501a2d4c95bff3d5601013d923, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  version: 3
+  unityVersion: 2022.3.22f1
+  vrcfuryVersion: 1.1340.0
+  somethingIsBroken: 0
+  config:
+    features: []
+  content:
+    rid: 4681974967843946507
+  references:
+    version: 2
+    RefIds:
+    - rid: 4681974967843946507
+      type: {class: Toggle, ns: VF.Model.Feature, asm: VRCFury}
+      data:
+        version: 3
+        name: noodle/world drop
+        state:
+          actions:
+          - rid: 4681974967843946508
+        saved: 0
+        slider: 0
+        sliderInactiveAtZero: 0
+        securityEnabled: 0
+        defaultOn: 0
+        includeInRest: 0
+        exclusiveOffState: 0
+        enableExclusiveTag: 0
+        exclusiveTag: 
+        resetPhysbones: []
+        hasExitTime: 0
+        enableIcon: 0
+        icon:
+          version: 1
+          fileID: 0
+          guid: 
+          id: 
+          objRef: {fileID: 0}
+        enableDriveGlobalParam: 0
+        driveGlobalParam: 
+        separateLocal: 0
+        localState:
+          actions: []
+        hasTransition: 0
+        transitionStateIn:
+          actions: []
+        transitionStateOut:
+          actions: []
+        transitionTimeIn: 0
+        transitionTimeOut: 0
+        localTransitionStateIn:
+          actions: []
+        localTransitionStateOut:
+          actions: []
+        localTransitionTimeIn: 0
+        localTransitionTimeOut: 0
+        simpleOutTransition: 1
+        defaultSliderValue: 0
+        useGlobalParam: 0
+        globalParam: 
+        holdButton: 0
+        invertRestLogic: 0
+        expandIntoTransition: 1
+    - rid: 4681974967843946508
+      type: {class: WorldDropAction, ns: VF.Model.StateAction, asm: VRCFury}
+      data:
+        version: 0
+        desktopActive: 0
+        androidActive: 0
+        localOnly: 0
+        remoteOnly: 0
+        obj: {fileID: 5402605253820242531}
 --- !u!1 &5507630109259957173
 GameObject:
   m_ObjectHideFlags: 0
