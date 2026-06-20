@@ -191,6 +191,7 @@ namespace ops_dev.Editor.Builders {
             mats[0].SetInt("_OPS_AVOID_SELF_MASK", settings.opsAvoidSelfChannel);
             mats[0].SetInt("_OPS_PATH_COUNT", hasPathPoints ? settings.pathPoints.Count : 0);
             mats[0].SetInt("_OPS_PATH_HIDE_SEGMENTS", settings.opsShrinkPathSegments ? 1 : 0);
+            mats[0].SetInt("_OPS_LIGHTSOURCE_BACKUP_EXISTS", settings.ops_sps_dps_lightsource_backup ? 1 : 0);
 
             UnityEditor.AssetDatabase.CreateAsset(mats[0], Path.Combine(materialFolder, mats[0].name + ".mat").Replace("\\", "/"));
             UnityEditor.AssetDatabase.SaveAssets();

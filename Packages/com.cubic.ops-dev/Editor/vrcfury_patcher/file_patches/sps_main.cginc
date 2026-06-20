@@ -599,10 +599,10 @@ void calculate_bezier_points(
 	sps_bezierSolve_opt(p0, p1, p2, p3, distance_along_line, reference_up, curveLength, bezierPos, bezierForward, bezierUp);
 
 
-	//Force the upwards direction if passed the start, prevent rolling
-	// float lerp_amount = IsBehind(end_point, start_point, start_direction) ? 0 : sps_saturated_map(start_end_distance, 0, 0.002);
+	//Force the upwards direction if passed the start, prevent rolling, set dist to 1 cm, might need to set it higher, prevents bad rolling that occurs due to the bezier
+	float lerp_amount = IsBehind(end_point, start_point, start_direction) ? 0 : sps_saturated_map(start_end_distance, 0, 0.01);
 
-	// bezierUp = lerp(reference_up, bezierUp, lerp_amount);
+	bezierUp = lerp(reference_up, bezierUp, lerp_amount);
 
 	bezierRight = sps_normalize(cross(bezierUp, bezierForward));
 }

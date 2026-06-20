@@ -8,7 +8,7 @@ Shader "cubic/ops/OpsIDWriter_vert"
     
     SubShader
     {
-        Tags { "RenderType"="Opaque" "Queue"="Background-610"}
+        Tags { "RenderType"="Opaque" "Queue"="Background-610" "ForceNoShadowCasting"="True" "IgnoreProjector"="True"}
 
         Pass
         {

@@ -21,7 +21,7 @@ Shader "cubic/ops/OpsOrifice_writer"
     
     SubShader
     {
-        Tags { "RenderType"="Opaque" "Queue"="Background-510" "DisableBatching"="True"}
+        Tags { "RenderType"="Opaque" "Queue"="Background-510" "DisableBatching"="True" "ForceNoShadowCasting"="True" "IgnoreProjector"="True"}
 
         Pass
         {
