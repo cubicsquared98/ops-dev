@@ -600,7 +600,7 @@ void calculate_bezier_points(
 
 
 	//Force the upwards direction if passed the start, prevent rolling, set dist to 1 cm, might need to set it higher, prevents bad rolling that occurs due to the bezier
-	float lerp_amount = IsBehind(end_point, start_point, start_direction) ? 0 : sps_saturated_map(start_end_distance, 0, 0.01);
+	float lerp_amount = sps_saturated_map(start_end_distance, 0, 0.01);//IsBehind(end_point, start_point, start_direction) ? 0 : 
 
 	bezierUp = lerp(reference_up, bezierUp, lerp_amount);
 

@@ -1,7 +1,7 @@
 {
   "name": "com.cubic.ops-dev",
   "displayName": "ops early version package",
-  "version": "0.0.21",
+  "version": "0.0.22",
   "unity": "2022.3",
   "description": "Package to use OPS system on an avatar",
   "vrchatVersion": "2022.1.1",
