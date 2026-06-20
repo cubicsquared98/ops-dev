@@ -31,7 +31,10 @@ namespace ops_dev.Components {
         public int opsAvoidSelfChannel = -1;
         public bool opsShrinkPathSegments = false;
         public int ops_channel = -1;
+        [Tooltip("This must be enabled if you are using an sps socket with deformation enabled. opsAvoidSelfChannel may not work properly if using backup light sources, as the ops orifice will be ignored, but the light source wont")]
         public bool ops_sps_dps_lightsource_backup = false;
+
+        [Header("USING lightsource backup means the avoid on self channels will not work as intended")]
 
         [Header("Orifice path")]
         [Tooltip("Orifice will follow this path")]
