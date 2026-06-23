@@ -59,6 +59,7 @@ Shader "cubic/ops/OpsPenetrator_writer"
                 uint VertexId : TEXCOORD1;
                 float3 worldPos : TEXCOORD2;
                 uint OpsPenetrator_ID : TEXCOORD3;
+                float3 worldOpsDeformBase : TEXCOORD4;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -108,6 +109,7 @@ Shader "cubic/ops/OpsPenetrator_writer"
                 o.VertexId = v.VertexId;
                 o.worldPos = mul(unity_ObjectToWorld, v.vertex);
                 o.vertex = v.vertex;
+                o.worldOpsDeformBase = worldObjectPos;
 
                 return o;
             }
@@ -127,9 +129,14 @@ Shader "cubic/ops/OpsPenetrator_writer"
                 //The generic penetrator infomation is written here
                 if(triID == 0){
                     //Technically speaking, these should be the right order.
-                    float3 origin = input[0].worldPos.xyz;
+                    float3 origin = input[0].worldPos.xyz;; //
                     float3 yPoint = input[1].worldPos.xyz;
                     float3 zPoint = input[2].worldPos.xyz;
+
+                    //Origin to zPoint is the length of the fully out penetrator
+
+                    //DeformOriginPoint is the point that deformation begins at
+                    float3 DeformOriginPoint = input[0].worldOpsDeformBase;
 
 
                     float2 pixelSizeClip = 2.0 / _ScreenParams.xy;
@@ -142,6 +149,8 @@ Shader "cubic/ops/OpsPenetrator_writer"
 
                     // Array holding our X, Y, and Z data
                     values[offset_penetrator_is_active_p1] = PackToFloat4(1.0f);
+
+                    //For true length and radius
                     values[offset_penetrator_world_start_point_x_p1] = PackToFloat4(origin.x);
                     values[offset_penetrator_world_start_point_y_p1] = PackToFloat4(origin.y);
                     values[offset_penetrator_world_start_point_z_p1] = PackToFloat4(origin.z);
@@ -151,6 +160,13 @@ Shader "cubic/ops/OpsPenetrator_writer"
                     values[offset_penetrator_world_radius_up_point_x_p1] = PackToFloat4(yPoint.x);
                     values[offset_penetrator_world_radius_up_point_y_p1] = PackToFloat4(yPoint.y);
                     values[offset_penetrator_world_radius_up_point_z_p1] = PackToFloat4(yPoint.z);
+
+                    //For the starting point of the deformation
+                    values[offset_penetrator_world_deform_start_point_x_p1] = PackToFloat4(DeformOriginPoint.x);
+                    values[offset_penetrator_world_deform_start_point_y_p1] = PackToFloat4(DeformOriginPoint.y);
+                    values[offset_penetrator_world_deform_start_point_z_p1] = PackToFloat4(DeformOriginPoint.z);
+
+                    //Extra data
                     values[offset_penetrator_glow_color_rgb_p1] = UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_PENETRATOR_GLOW_COLOR);
                     values[offset_penetrator_emission_strength_p1] = PackToFloat4(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_PENETRATOR_EMISSION_STRENGTH));
                     values[offset_penetrator_avoid_on_self_mask_p1] = PackToFloat4(float(UNITY_ACCESS_INSTANCED_PROP(Props, _OPS_PENETRATOR_AVOID_ON_SELF_MASK)));

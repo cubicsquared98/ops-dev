@@ -354,18 +354,18 @@ void ops_pen_search(
 
 		if(self_avatar_ID != 0 && avatar_ID == self_avatar_ID && (avoid_on_self_mask == avoid_on_self_mask_other && avoid_on_self_mask != -1)) continue;
 
-		float3 other_start_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_start_point_x, i));
+		float3 other_deform_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_deform_start_point_x, i));
 		float3 end_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_end_point_x, i));
 
-		// Check distance from center, because we are allowing entry from both sides
+		// Check distance from center, because we are allowing entry from both sides (not any more but keep logic like this)
         float3 self_center = search_from_point + (search_normal * (search_penetrator_length * 0.5));
-        float3 other_center = (other_start_point + end_point) * 0.5;
+        float3 other_center = (other_deform_point + end_point) * 0.5;
 
 		
 		const float3 delta = other_center - self_center;
 		const float distance_to_sq = dot(delta, delta);
 
-		const float3 delta_other = (other_start_point - end_point)*1.6;
+		const float3 delta_other = (other_deform_point - end_point)*1.6;
 		const float other_search_length_square = dot(delta_other, delta_other);
 
 		//We search to make sure we are within the distance for *both* penetrators.
@@ -373,8 +373,9 @@ void ops_pen_search(
 
 
 		float3 radius_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_radius_up_point_x, i));
+		float3 other_start_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_start_point_x, i));
 
-		float3 normal = sps_normalize(end_point - other_start_point);
+		float3 normal = sps_normalize(end_point - other_deform_point);
 		float radius = distance(other_start_point, radius_point);
 		// float length = distance(other_start_point, end_point);
 
@@ -385,7 +386,7 @@ void ops_pen_search(
         // }
 
 		//If within the search range, we will count it
-		found_other_positions[found_count] = other_start_point;
+		found_other_positions[found_count] = other_deform_point;
 		found_other_normals[found_count] = normal;
 		found_other_radius[found_count] = radius;
 		//found_other_length[found_count] = length;

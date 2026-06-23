@@ -48,19 +48,25 @@
 #define offset_penetrator_world_radius_up_point_x 7
 #define offset_penetrator_world_radius_up_point_y 8
 #define offset_penetrator_world_radius_up_point_z 9
-#define offset_penetrator_glow_color_rgb 10
-#define offset_penetrator_emission_strength 11
-#define offset_penetrator_avoid_on_self_mask 12
-#define offset_penetrator_channel_id 13
+#define offset_penetrator_world_deform_start_point_x 10
+#define offset_penetrator_world_deform_start_point_y 11
+#define offset_penetrator_world_deform_start_point_z 12
+#define offset_penetrator_glow_color_rgb 13
+#define offset_penetrator_emission_strength 14
+#define offset_penetrator_avoid_on_self_mask 15
+#define offset_penetrator_channel_id 16
 //Bone start index  - not needed to be written / read in sps now (other penetrators/orifii dont need this info)
-#define offset_penetrator_bone_data_start_bone_index 14
+#define offset_penetrator_bone_data_start_bone_index 17
 //Bone data enable  - not needed to be written / read in sps now (other penetrators/orifii dont need this info)
-#define offset_penetrator_bone_data_enabled 15
-#define offset_penetrator_frot_mode 16
-#define offset_penetrator_avatar_id 17
+#define offset_penetrator_bone_data_enabled 18
+#define offset_penetrator_frot_mode 19
+
+//Goes in p2
+#define offset_penetrator_avatar_id 20
 
 
-#define offset_penetrator_bone_data_start 18
+//Start of the dynamic offset stuff
+#define offset_penetrator_bone_data_start 21
 
 #define dynamic_offset_penetrator_Bone_data 2
 #define dynamic_offset_penetrator_Bone_relative_radius_scale_x 0
@@ -76,6 +82,9 @@
 #define offset_penetrator_world_radius_up_point_x_p1 offset_penetrator_world_radius_up_point_x
 #define offset_penetrator_world_radius_up_point_y_p1 offset_penetrator_world_radius_up_point_y
 #define offset_penetrator_world_radius_up_point_z_p1 offset_penetrator_world_radius_up_point_z
+#define offset_penetrator_world_deform_start_point_x_p1 offset_penetrator_world_deform_start_point_x
+#define offset_penetrator_world_deform_start_point_y_p1 offset_penetrator_world_deform_start_point_y
+#define offset_penetrator_world_deform_start_point_z_p1 offset_penetrator_world_deform_start_point_z
 #define offset_penetrator_glow_color_rgb_p1 offset_penetrator_glow_color_rgb
 #define offset_penetrator_emission_strength_p1 offset_penetrator_emission_strength
 #define offset_penetrator_avoid_on_self_mask_p1 offset_penetrator_avoid_on_self_mask
@@ -84,13 +93,17 @@
 #define offset_penetrator_bone_data_enabled_p1 offset_penetrator_bone_data_enabled
 #define offset_penetrator_frot_mode_p1 offset_penetrator_frot_mode
 
-#define offset_penetrator_avatar_id_p2 0
-
-#define Total_written_penetrator_values_p1 17
+#define Total_written_penetrator_values_p1 20
 #define Total_written_penetrator_values_p1_start 0
+
+//Would start at 0
+//#define offset_penetrator_avatar_id_p2 0
+#define offset_penetrator_avatar_id_p2 (offset_penetrator_avatar_id - Total_written_penetrator_values_p1)
+
 #define Total_written_penetrator_values_p2 1
-#define Total_written_penetrator_values_p2_start 17
-#define Total_written_penetrator_values 18
+#define Total_written_penetrator_values_p2_start (Total_written_penetrator_values_p1 + 1)
+#define Total_written_penetrator_values 21
+//Total_written_penetrator_values is the max size array, its just the size of Total_written_penetrator_values_p1 + 1
 
 
 #define OPS_hole_type_INVALID 0
