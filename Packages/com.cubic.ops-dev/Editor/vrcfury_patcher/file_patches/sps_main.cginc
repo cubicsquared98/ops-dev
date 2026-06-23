@@ -810,8 +810,8 @@ void ops_apply(
 
 		//This is fine, all wavefront can only run one or the other
 		if(recursion_loop == 0){
+			bool found_frot = false;
 			if(_OPS_FROT_MODE == 1){
-				bool found_frot;
 				ops_pen_search(searchFrom, search_normal, worldRadius, search_to_distance, length_z,
 					penetrator_ID, self_avatar_id, avoid_on_self_mask, channel_id,
 					HalfWidth, 0.05, //Overlap percentage
@@ -825,7 +825,7 @@ void ops_apply(
 					searching_orifice_type.z = OPS_hole_alignment_CENTER_ALIGNED;
 				}
 			}
-			else{
+			if(!found_frot){
 				ops_search_all(orificeRootLocal, orificeRootNormal, orificeRootUp,
 					found_orifice_id, searching_orifice_type, allow_recursion,
 					path_count, path_end,
