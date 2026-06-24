@@ -44,6 +44,7 @@ void ops_search_all(inout float3 orificeRootLocal, inout float3 orificeRootNorma
 	bool Closest_allow_recursion = true;
 	allowLightSourcesInRecursion = false;
 
+	[loop]
 	for(int i = 1; i <= Total_Ids; i++){ //0 cannot be an ID
 		const uint4 Actives = UnpackFloat4ToUint4(readDataFrom(float2(offset_Orafice_ID_BitWise_Booleans, i)));
 		//const float isActive = round(readInlineFloatData(offset_Orafice_ID_BitWise_Booleans, i));
@@ -115,6 +116,7 @@ void ops_search_all(inout float3 orificeRootLocal, inout float3 orificeRootNorma
 		}
 		
 	}
+	[branch]
 	if(closest >= 0){
 		//We now have our selected first orifice. Sets it to used.
 		within_range_used_values |= (1u << closest);
@@ -236,6 +238,7 @@ void ops_search_within_found_range(inout float3 orificeRootLocal, inout float3 o
 			}
 		}
 	}
+	[branch]
 	if(closest >= 0){
 		//We now have our selected orifice. Sets it as used.
 		within_range_used_values |= (1u << closest);
@@ -252,6 +255,7 @@ void ops_search_within_found_range(inout float3 orificeRootLocal, inout float3 o
 		
 	}
 	//Small check to make sure that the previous orifice found has an ID meaning it is an ops orifice not a dps/sps only orifice
+	//[branch] should not be needed here
 	else if (found_orifice_id != -1 && allowLightSourcesInRecursion){
 		//Backup search for light source using sps logic
 		int sps_orifice_type = SPS_TYPE_INVALID;
@@ -297,6 +301,9 @@ void ops_search_within_found_range(inout float3 orificeRootLocal, inout float3 o
 }
 
 //Function finds first __max_frot_count_find penetrators within the search_to_max_distance, and checks if they have frot mode enabled
+//TODO: OPTIMISE THIS FUNCTION:
+//normals array can be removed
+//Other stuff can also be optimised
 void ops_pen_search(
 	float3 search_from_point, float3 search_normal, float search_radius, float search_to_max_distance, float search_penetrator_length,
 	uint self_ID, uint self_avatar_ID, int avoid_on_self_mask, int channel_id,
@@ -321,21 +328,24 @@ void ops_pen_search(
 
 	float search_to_distance_sq = search_to_max_distance*search_to_max_distance;
 	
-	float3 found_other_positions[__max_frot_count];
-	float3 found_other_normals[__max_frot_count];
-	float found_other_radius[__max_frot_count];
+	//Some shader version didnt like this, so going back
+	float3 found_other_positions[__max_frot_count];// = (float3[__max_frot_count])0;
+	float3 found_other_normals[__max_frot_count];//   = (float3[__max_frot_count])0;
+	float found_other_radius[__max_frot_count];//    = (float[__max_frot_count])0;
 	//float found_other_length[__max_frot_count];
-	
-	for(uint g = 0; g < __max_frot_count; g++){
-		found_other_positions[g] = float3(0,0,0);
-		found_other_normals[g] = float3(0,0,0);
-		found_other_radius[g] = 0;
-		//found_other_length[g] = 0;
+
+	for(int i = 0; i < __max_frot_count; i++) {
+		found_other_positions[i] = float3(0,0,0);
+		found_other_normals[i] = float3(0,0,0);
+		found_other_radius[i] = 0.0;
 	}
+
+
 	
 	uint found_count = 0;
 	//Simply check the first 5. Ignore any extras
 
+	[loop]
 	for(int i = 1; i <= Total_Ids; i++){ //0 cannot be an ID
 		if(i == self_ID) continue;
 
@@ -394,6 +404,7 @@ void ops_pen_search(
 		found_count++;
 		if(found_count >= __max_frot_count_find) break;
 	}
+	[branch]
 	if(found_count == 0){
 		frot_found = false;
 		use_position = float3(0,0,0);
@@ -684,10 +695,19 @@ void ops_apply(
 	int4 blendIndices, //SPS_STRUCT_BLENDINDICES_TYPE
 	float4 blendWeights //SPS_STRUCT_BLENDWEIGHT_TYPE
 ) {
+	if(!(_SPS_Enabled > 0.0)){
+		return;
+	}
+	// //Kill verts, just to prevent shadow from being rendered
+	// This is commented out, because it doesnt line up perfectly with smooth toggle of actual shadow stuff on mesh renderer
+	// #if defined(UNITY_PASS_SHADOWCASTER)
+    //     // Collapse the vertex to the local origin to prevent shadow casting
+    //     vertex.xyz = float3(0, 0, 0);
+    //     return;
+	// #endif
+
 	float worldLength = _SPS_Length;//_SPS_Length;//length(unity_ObjectToWorld[0].xyz) * _SPS_BakedLength;//_SPS_Length;
-	// /*const*/ float3 origVertex = vertex.xyz;
-	// /*const*/ float3 origNormal = normal.xyz;
-	// /*const*/ float3 origTangent = tangent.xyz;
+
 	float3 bakedVertex;
 	float3 bakedNormal;
 	float3 bakedTangent;
@@ -758,7 +778,7 @@ void ops_apply(
 	bakedVertex.z -= start_z;
 
 	//If the bakedVertex is behind 0,0,0 (negative Z) we can now return the actual vertex position
-	if(ops_isActive < 0.5 || bakedVertex.z < 0){
+	if(bakedVertex.z < 0){
 		// values have not changed, so just return.
 		return;
 	}
@@ -804,41 +824,46 @@ void ops_apply(
 
 	bool allowLightSourcesInRecursion = true; //This is set to false if we find an orifice that has a backup light source
 
+	uint4 searching_orifice_type = uint4(OPS_hole_type_INVALID, OPS_hole_entry_direction_INVALID, OPS_hole_alignment_INVALID, 0);
+
+	bool found_frot = false;
+	//Process frot outside of the recursion loop
+	[branch]
+	if(_OPS_FROT_MODE == 1){
+		ops_pen_search(searchFrom, search_normal, worldRadius, search_to_distance, length_z,
+			penetrator_ID, self_avatar_id, avoid_on_self_mask, channel_id,
+			HalfWidth, 0.05, //Overlap percentage
+			orificeRootLocal, orificeRootNormal, found_frot
+		);
+	}
+	[branch]
+	if(found_frot){
+		orificeRootNormal = -orificeRootNormal;
+		allow_recursion = false;
+		searching_orifice_type.x = OPS_hole_type_RING;
+		searching_orifice_type.y = OPS_hole_entry_direction_ONE_WAY;
+		searching_orifice_type.z = OPS_hole_alignment_CENTER_ALIGNED;
+	}
+	else{
+		ops_search_all(orificeRootLocal, orificeRootNormal, orificeRootUp,
+			found_orifice_id, searching_orifice_type, allow_recursion,
+			path_count, path_end,
+			within_range_valueIDs, within_range_index, within_range_used_values,
+			self_avatar_id, avoid_on_self_mask, channel_id,
+			searchFrom, search_normal, search_to_distance,
+			allowLightSourcesInRecursion
+		);
+	}
+
+	[loop]
 	for(int recursion_loop = 0; recursion_loop < _OPS_MAX_RECURSIVE_OPS; recursion_loop ++){
 		//continue to find next hole
 		//Search from location of last point and populate orifice data with new infomation
-		uint4 searching_orifice_type = uint4(OPS_hole_type_INVALID, OPS_hole_entry_direction_INVALID, OPS_hole_alignment_INVALID, 0);
 
-		//This is fine, all wavefront can only run one or the other
-		if(recursion_loop == 0){
-			bool found_frot = false;
-			if(_OPS_FROT_MODE == 1){
-				ops_pen_search(searchFrom, search_normal, worldRadius, search_to_distance, length_z,
-					penetrator_ID, self_avatar_id, avoid_on_self_mask, channel_id,
-					HalfWidth, 0.05, //Overlap percentage
-					orificeRootLocal, orificeRootNormal, found_frot
-				);
-				orificeRootNormal = -orificeRootNormal;
-				allow_recursion = false;
-				if(found_frot){
-					searching_orifice_type.x = OPS_hole_type_RING;
-					searching_orifice_type.y = OPS_hole_entry_direction_ONE_WAY;
-					searching_orifice_type.z = OPS_hole_alignment_CENTER_ALIGNED;
-				}
-			}
-			if(!found_frot){
-				ops_search_all(orificeRootLocal, orificeRootNormal, orificeRootUp,
-					found_orifice_id, searching_orifice_type, allow_recursion,
-					path_count, path_end,
-					within_range_valueIDs, within_range_index, within_range_used_values,
-					self_avatar_id, avoid_on_self_mask, channel_id,
-					searchFrom, search_normal, search_to_distance,
-					allowLightSourcesInRecursion
-				);
-			}
-		}
-		else{
-			//After the first loop, allow breaking out of the loop if recursion is disabled. This is efficient IF manually set
+		[branch]
+		if(recursion_loop != 0){
+			searching_orifice_type = uint4(OPS_hole_type_INVALID, OPS_hole_entry_direction_INVALID, OPS_hole_alignment_INVALID, 0);
+			//After the first loop, allow breaking out of the loop if recursion is disabled.
 			if(!allow_recursion){
 				break;
 			}
@@ -1082,12 +1107,6 @@ void ops_apply(
 		}
 
 		allow_recursion = allow_recursion && orifice_type.x == OPS_hole_type_RING;
-		// if(!(orifice_type == SPS_TYPE_RING_TWOWAY || orifice_type == SPS_TYPE_RING_ONEWAY)){
-		// 	//If is a hole instead of a ring, then no recursion allowed; exit after pathing.
-		// 	allow_recursion = false;
-		// 	break;
-		// 	//Exit out and run code at bottom, this hole type does not support recursion
-		// }
 
 		searchFrom = Current_Path_Point;
 		search_normal = Current_Path_Point_Direction;
@@ -1173,6 +1192,7 @@ void sps_apply(inout SpsInputs o) {
 	// Temporarily disable this check since apparently it causes some passes to not apply SPS
 	//#ifdef VERTEXLIGHT_ON
 
+
 	ops_apply(
 		o.SPS_STRUCT_POSITION_NAME,
 		o.SPS_STRUCT_NORMAL_NAME,
@@ -1182,6 +1202,8 @@ void sps_apply(inout SpsInputs o) {
 		o.SPS_STRUCT_BLENDINDICES_NAME,
 		o.SPS_STRUCT_BLENDWEIGHTS_NAME
 	);
+
+
 	//#endif
 
 }
