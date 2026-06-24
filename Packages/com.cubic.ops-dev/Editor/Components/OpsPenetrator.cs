@@ -27,6 +27,8 @@ namespace ops_dev.Components {
 
 
         [Header("Advanced Penetrator Properties")]
+        [Tooltip("Auto disable shadows when deformation is enabled")]
+        public bool AutoDisableMeshShadowsOnDeformation = false;
         public Color penetratorGlowColor = Color.black;
         [Range(0f, 1f)]
         public float emissionStrength = 0f;

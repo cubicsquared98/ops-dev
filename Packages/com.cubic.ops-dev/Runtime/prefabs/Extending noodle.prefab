@@ -83,6 +83,7 @@ MonoBehaviour:
   length: 0.7165613
   radius: 0.06666673
   frot_mode: 0
+  AutoDisableMeshShadowsOnDeformation: 1
   penetratorGlowColor: {r: 1, g: 1, b: 1, a: 1}
   emissionStrength: 0
   avoidOnSelfChannel: -1

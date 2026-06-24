@@ -97,10 +97,19 @@ namespace ops_dev.Editor.Builders {
             // Map to store explicit target paths for Penetrators and Orifices (such as sps component toggles)
             Dictionary<string, List<string>> targetToExplicitPathsMap = new Dictionary<string, List<string>>();
 
+            // Map to store the SMR path associated with a specific penetrator to manipulate shadows
+            Dictionary<string, string> targetToSmrPathMap = new Dictionary<string, string>();
+
             foreach (var pen in avatarGameObject.GetComponentsInChildren<OpsPenetrator>(true))
             {
                 string penPath = AnimationUtility.CalculateTransformPath(pen.gameObject.transform, avatarGameObject.transform);
                 targetOpsPaths.Add(penPath);
+
+                //Map the mesh SMR path to disable shadows further on
+                if (pen.penetratorMeshObject != null && pen.AutoDisableMeshShadowsOnDeformation)
+                {
+                    targetToSmrPathMap[penPath] = AnimationUtility.CalculateTransformPath(pen.penetratorMeshObject, avatarGameObject.transform);
+                }
 
                 // If an SPS component is assigned, calculate its path and store it
                 if (pen.sps_component_parent != null)
@@ -177,7 +186,7 @@ namespace ops_dev.Editor.Builders {
             {
                 if (!descriptor.baseAnimationLayers[i].isDefault && descriptor.baseAnimationLayers[i].animatorController != null)
                 {
-                    RuntimeAnimatorController newController = ProcessController(descriptor.baseAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToExplicitPathsMap, savePath);
+                    RuntimeAnimatorController newController = ProcessController(descriptor.baseAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToExplicitPathsMap, targetToSmrPathMap, savePath, avatarGameObject);
                     if (newController != descriptor.baseAnimationLayers[i].animatorController)
                     {
                         descriptor.baseAnimationLayers[i].animatorController = newController;
@@ -189,7 +198,7 @@ namespace ops_dev.Editor.Builders {
             {
                 if (!descriptor.specialAnimationLayers[i].isDefault && descriptor.specialAnimationLayers[i].animatorController != null)
                 {
-                    RuntimeAnimatorController newController = ProcessController(descriptor.specialAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToExplicitPathsMap, savePath);
+                    RuntimeAnimatorController newController = ProcessController(descriptor.specialAnimationLayers[i].animatorController, baseObjPath, targetOpsPaths, targetToExplicitPathsMap, targetToSmrPathMap, savePath, avatarGameObject);
                     if (newController != descriptor.specialAnimationLayers[i].animatorController)
                     {
                         descriptor.specialAnimationLayers[i].animatorController = newController;
@@ -205,7 +214,7 @@ namespace ops_dev.Editor.Builders {
             return true;
         }
 
-        private static RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, string baseObjPath, HashSet<string> targetOpsPaths, Dictionary<string, List<string>> targetToExplicitPathsMap, string savePath)
+        private static RuntimeAnimatorController ProcessController(RuntimeAnimatorController originalController, string baseObjPath, HashSet<string> targetOpsPaths, Dictionary<string, List<string>> targetToExplicitPathsMap, Dictionary<string, string> targetToSmrPathMap, string savePath, GameObject avatarRoot)
         {
             string oldAssetPath = AssetDatabase.GetAssetPath(originalController);
             if (string.IsNullOrEmpty(oldAssetPath)) return originalController;
@@ -299,6 +308,26 @@ namespace ops_dev.Editor.Builders {
                 }
             }
 
+            //Map the closest animated parents to their respective penetrator SMR paths 
+            Dictionary<string, List<string>> parentToSmrPaths = new Dictionary<string, List<string>>();
+            foreach (var kvp in targetToClosestParentMap)
+            {
+                string targetPath = kvp.Key;
+                string closestParent = kvp.Value;
+
+                if (targetToSmrPathMap.TryGetValue(targetPath, out string smrPath))
+                {
+                    if (!parentToSmrPaths.ContainsKey(closestParent))
+                    {
+                        parentToSmrPaths[closestParent] = new List<string>();
+                    }
+                    if (!parentToSmrPaths[closestParent].Contains(smrPath))
+                    {
+                        parentToSmrPaths[closestParent].Add(smrPath);
+                    }
+                }
+            }
+
 
             Dictionary<AnimationClip, AnimationClip> clipReplacements = new Dictionary<AnimationClip, AnimationClip>();
 
@@ -306,7 +335,7 @@ namespace ops_dev.Editor.Builders {
             {
                 if (clip == null || clipReplacements.ContainsKey(clip)) continue;
 
-                AnimationClip modifiedClip = ProcessClip(clip, baseObjPath, targetToClosestParentMap, savePath);
+                AnimationClip modifiedClip = ProcessClip(clip, baseObjPath, targetToClosestParentMap, parentToSmrPaths, savePath, avatarRoot);
                 if (modifiedClip != null)
                 {
                     clipReplacements.Add(clip, modifiedClip);
@@ -332,7 +361,7 @@ namespace ops_dev.Editor.Builders {
             return duplicatedController;
         }
 
-        private static AnimationClip ProcessClip(AnimationClip originalClip, string baseObjPath, Dictionary<string, string> targetToClosestParentMap, string savePath)
+        private static AnimationClip ProcessClip(AnimationClip originalClip, string baseObjPath, Dictionary<string, string> targetToClosestParentMap, Dictionary<string, List<string>> parentToSmrPaths, string savePath, GameObject avatarRoot)
         {
             EditorCurveBinding[] bindings = AnimationUtility.GetCurveBindings(originalClip);
 
@@ -371,6 +400,65 @@ namespace ops_dev.Editor.Builders {
                     {
                         EditorCurveBinding compBinding = EditorCurveBinding.FloatCurve(targetPath, typeof(GameObject), "m_IsActive");
                         AnimationUtility.SetEditorCurve(newClip, compBinding, parentCurve);
+                    }
+                }
+            }
+
+            //disabling shadows for penetrator SMRs
+            foreach (var kvp in parentToSmrPaths)
+            {
+                string parentPath = kvp.Key;
+                List<string> smrPaths = kvp.Value;
+
+                if (parentCurvesInClip.TryGetValue(parentPath, out AnimationCurve parentCurve))
+                {
+                    foreach (string smrPath in smrPaths)
+                    {
+                        // Cache original SMR shadow states
+                        float defaultCast = 1f;    // 1 = On
+                        float defaultReceive = 1f; // 1 = True
+
+                        if (avatarRoot != null)
+                        {
+                            Transform smrTransform = smrPath == "" ? avatarRoot.transform : avatarRoot.transform.Find(smrPath);
+                            if (smrTransform != null)
+                            {
+                                SkinnedMeshRenderer smr = smrTransform.GetComponent<SkinnedMeshRenderer>();
+                                if (smr != null)
+                                {
+                                    defaultCast = (float)smr.shadowCastingMode;
+                                    defaultReceive = smr.receiveShadows ? 1f : 0f;
+                                }
+                            }
+                        }
+
+                        AnimationCurve castShadowsCurve = new AnimationCurve();
+                        AnimationCurve receiveShadowsCurve = new AnimationCurve();
+
+                        foreach (var key in parentCurve.keys)
+                        {
+                            bool isActive = key.value > 0.5f;
+
+                            // Turn properties to 0 (off) when deformation is enabled, otherwise revert to default
+                            float targetCast = isActive ? 0f : defaultCast;
+                            float targetReceive = isActive ? 0f : defaultReceive;
+
+                            Keyframe castKey = new Keyframe(key.time, targetCast);
+                            castKey.inTangent = float.PositiveInfinity;
+                            castKey.outTangent = float.PositiveInfinity;
+                            castShadowsCurve.AddKey(castKey);
+
+                            Keyframe receiveKey = new Keyframe(key.time, targetReceive);
+                            receiveKey.inTangent = float.PositiveInfinity;
+                            receiveKey.outTangent = float.PositiveInfinity;
+                            receiveShadowsCurve.AddKey(receiveKey);
+                        }
+
+                        EditorCurveBinding castBinding = EditorCurveBinding.FloatCurve(smrPath, typeof(SkinnedMeshRenderer), "m_CastShadows");
+                        EditorCurveBinding receiveBinding = EditorCurveBinding.FloatCurve(smrPath, typeof(SkinnedMeshRenderer), "m_ReceiveShadows");
+
+                        AnimationUtility.SetEditorCurve(newClip, castBinding, castShadowsCurve);
+                        AnimationUtility.SetEditorCurve(newClip, receiveBinding, receiveShadowsCurve);
                     }
                 }
             }
