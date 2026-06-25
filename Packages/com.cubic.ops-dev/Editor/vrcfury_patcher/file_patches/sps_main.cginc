@@ -517,6 +517,211 @@ void ops_pen_search(
 	frot_found = true;
 }
 
+
+void ops_frot_gather(
+    float3 search_from_point, float3 search_normal, float search_radius, float search_to_max_distance, float search_penetrator_length,
+    uint self_ID, uint self_avatar_ID, int avoid_on_self_mask, int channel_id, float half_screen,
+    out uint found_count, out float4 found_other_data[5], 
+    out float3 group_average_normal, out float3 group_max_proj_point, out float group_max_length
+) {
+
+	found_count = 0;
+    float3 sum_positions = search_from_point;
+    float3 averageDirection = search_normal;
+    group_max_length = search_penetrator_length;
+
+	
+	uint4 ID_space = getIDSpace(ID_SPACE_PENETRATOR);
+    float3 read_data = readDataFrom_ID_TEX(ID_space.zw);
+    int Total_Ids = min(_OPS_TextureExists() ? round(read_data.r * getMultiplierDecode()) : 0, 2000);
+
+    float search_to_distance_sq = search_to_max_distance * search_to_max_distance;
+
+	[loop]
+    for(int i = 1; i <= Total_Ids; i++){
+        if(i == self_ID) continue;
+
+        const float isActive = round(readInlineFloatData(half_screen + offset_penetrator_is_active, i));
+        if(isActive < 1) continue;
+
+        const uint isFrotMode = readInlineUintData(half_screen + offset_penetrator_frot_mode, i);
+        if(isFrotMode == 0) continue;
+
+        const float channel_ID = round(readInlineFloatData(half_screen + offset_penetrator_channel_id, i));
+        if(channel_id != -1 && channel_id != int(channel_ID)) continue;
+
+        const uint avatar_ID = uint(readInlineUintData(half_screen + offset_penetrator_avatar_id, i));
+        const int avoid_on_self_mask_other = int(round(readInlineFloatData(half_screen + offset_penetrator_avoid_on_self_mask, i)));
+
+        if(self_avatar_ID != 0 && avatar_ID == self_avatar_ID && (avoid_on_self_mask == avoid_on_self_mask_other && avoid_on_self_mask != -1)) continue;
+
+        float3 other_deform_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_deform_start_point_x, i));
+        float3 end_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_end_point_x, i));
+
+        float3 self_center = search_from_point + (search_normal * (search_penetrator_length * 0.5));
+        float3 other_center = (other_deform_point + end_point) * 0.5;
+
+        const float3 delta = other_center - self_center;
+        const float distance_to_sq = dot(delta, delta);
+
+        const float3 delta_other = (other_deform_point - end_point) * 1.6;
+        const float other_search_length_square = dot(delta_other, delta_other);
+
+        if(distance_to_sq > min(search_to_distance_sq, other_search_length_square)) continue;
+
+        float3 radius_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_radius_up_point_x, i));
+        float3 other_start_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_start_point_x, i));
+        float radius = distance(other_start_point, radius_point);
+        float length = distance(other_deform_point, end_point);
+
+        float3 normal = sps_normalize(end_point - other_deform_point);
+
+        found_other_data[found_count].xyz = other_deform_point;
+        found_other_data[found_count].w = radius;
+        averageDirection += normal;
+        sum_positions += other_deform_point;
+
+		//This value should be converted to distance from center point/deform point of frot group to end_point.
+		//TODO: this can be done by merging the below maxProj loop into this search loop, and storing the furthest end_point that is furthest when parrallel with the centerProj / average direction
+        group_max_length = max(group_max_length, length);
+
+        found_count++;
+        if(found_count >= 4) break; 
+    }
+
+	[branch]
+    if(found_count > 0) {
+        averageDirection = normalize(averageDirection);
+        found_other_data[found_count].xyz = search_from_point;
+        found_other_data[found_count].w = search_radius;
+        found_count++;
+
+        float3 group_average_center = sum_positions / (float)found_count;
+        group_average_normal = averageDirection;
+
+        // Find the furthest projected point along the new normal (NO forward shift yet)
+        float maxProj = dot(found_other_data[0].xyz, averageDirection);
+        [unroll]
+        for (uint m_idx = 1; m_idx < 5; m_idx++) {
+            if (m_idx < found_count) {
+                float proj = dot(found_other_data[m_idx].xyz, averageDirection);
+                maxProj = max(maxProj, proj);
+            }
+        }
+        float centerProj = dot(group_average_center, averageDirection);
+        group_max_proj_point = group_average_center + ((maxProj - centerProj) * averageDirection);
+    } else {
+        //Default to penetrator
+        group_average_normal = search_normal;
+        group_max_proj_point = search_from_point;
+    }
+}
+
+void ops_frot_apply(
+    uint found_count, inout float4 found_other_data[5], float3 group_average_projected_center, float3 group_average_normal, 
+    float group_max_length, float search_penetrator_length, float overlap_percent,
+    int found_orifice_id, float3 orifice_pos, float3 orifice_normal,
+	out float3 frot_offset, out float new_radius
+) {
+	#define TWO_PI 6.28318530718f
+    #define INV_TWO_PI 0.159154943f
+
+
+	//1. Magnetic Bending
+    if (found_orifice_id != -1) {
+        float dist_to_hole = distance(group_average_projected_center, orifice_pos);
+        // Blend boundaries based on the longest penetrator in the group
+        float blend_start = group_max_length * 1.6;
+        float blend_end = group_max_length * 1;
+        float pull_factor = 1.0 - sps_saturated_map(dist_to_hole, blend_end, blend_start);
+
+        group_average_projected_center = lerp(group_average_projected_center, orifice_pos, pull_factor);
+        group_average_normal = normalize(lerp(group_average_normal, -orifice_normal, pull_factor));
+    } else {
+        float3 forwardShift = (search_penetrator_length * 0.25 * group_average_normal);
+        group_average_projected_center += forwardShift;
+    }
+
+
+	// 2. 2D Plane Projection & Sorting
+    float3 upVec = abs(group_average_normal.y) > 0.99f ? float3(1, 0, 0) : float3(0, 1, 0);
+    float3 right = normalize(cross(upVec, group_average_normal));
+    float3 forward = normalize(cross(group_average_normal, right));
+
+    float angles[5];
+    [unroll]
+    for (uint j = 0; j < 5; j++) {
+        if(j < found_count) {
+            float3 delta = found_other_data[j].xyz - group_average_projected_center;
+            angles[j] = atan2(dot(delta, forward), dot(delta, right));
+        } else {
+            angles[j] = 999.0f;
+        }
+    }
+
+	uint my_index = found_count - 1;
+
+    #define SORT_SWAP(i, j) \
+    if(angles[i] > angles[j]) { \
+        if (my_index == i) my_index = j; \
+        else if (my_index == j) my_index = i; \
+        float temp_ang = angles[i]; \
+		angles[i] = angles[j]; \
+		angles[j] = temp_ang; \
+        float4 temp_data = found_other_data[i]; \
+		found_other_data[i] = found_other_data[j]; \
+		found_other_data[j] = temp_data; \
+    }
+    SORT_SWAP(0, 1); SORT_SWAP(3, 4);
+    SORT_SWAP(2, 4); SORT_SWAP(2, 3);
+    SORT_SWAP(0, 3); SORT_SWAP(0, 2);
+    SORT_SWAP(1, 4); SORT_SWAP(1, 3); SORT_SWAP(1, 2);
+    #undef SORT_SWAP
+
+	// 3. Spacing Math
+    float d[5];
+    float sumD = 0;
+
+    [unroll]
+    for (uint m = 0; m < 5; m++) {
+        if(m < found_count) {
+            float r1 = found_other_data[m].w;
+            uint next_idx = (m + 1 == found_count) ? 0 : m + 1; 
+            float r2 = found_other_data[next_idx].w;
+            d[m] = r1 + r2 - (overlap_percent * min(r1, r2));
+            sumD += d[m];
+        }
+    }
+
+    new_radius = sumD * INV_TWO_PI;
+    float thetas[5];
+    thetas[0] = 0;
+    [unroll]
+    for (uint n = 0; n < 4; n++) {
+        if(n < found_count - 1) {
+            thetas[n + 1] = thetas[n] + (d[n] / sumD) * TWO_PI;
+        }
+    }
+
+    float sumCos = 0; float sumSin = 0;
+    [unroll]
+    for (uint p = 0; p < 5; p++) {
+        if(p < found_count) {
+            float diff = angles[p] - thetas[p];
+            sumCos += cos(diff);
+			sumSin += sin(diff);
+        }
+    }
+    float optRot = atan2(sumSin, sumCos);
+
+    float finalAngle = thetas[my_index] + optRot;
+    float localX = new_radius * cos(finalAngle);
+    float localY = new_radius * sin(finalAngle);
+
+	//The 3D offset from the group_average_projected_center to this penetrator
+	frot_offset = (localX * right) + (localY * forward);
+}
+
 void calculate_lerps(inout float bezierLerp, inout float dumbLerp,
 	float entranceAngle, float exitAngle, float active,
 	float distance_to_orifice, float length_z,
@@ -804,34 +1009,73 @@ void ops_apply(
 
 	uint4 searching_orifice_type = uint4(OPS_hole_type_INVALID, OPS_hole_entry_direction_INVALID, OPS_hole_alignment_INVALID, 0);
 
-	bool found_frot = false;
-	//Process frot outside of the recursion loop
-	[branch]
-	if(_OPS_FROT_MODE == 1){
-		ops_pen_search(searchFrom, search_normal, worldRadius, search_to_distance, length_z,
-			penetrator_ID, self_avatar_id, avoid_on_self_mask, channel_id,
-			HalfWidth, 0.05, //Overlap percentage
-			orificeRootLocal, orificeRootNormal, found_frot
-		);
-	}
-	[branch]
-	if(found_frot){
-		orificeRootNormal = -orificeRootNormal;
-		allow_recursion = false;
-		searching_orifice_type.x = OPS_hole_type_RING;
-		searching_orifice_type.y = OPS_hole_entry_direction_ONE_WAY;
-		searching_orifice_type.z = OPS_hole_alignment_CENTER_ALIGNED;
-	}
-	else{
-		ops_search_all(orificeRootLocal, orificeRootNormal, orificeRootUp,
-			found_orifice_id, searching_orifice_type, allow_recursion,
-			path_count, path_end,
-			within_range_valueIDs, within_range_index, within_range_used_values,
-			self_avatar_id, avoid_on_self_mask, channel_id,
-			searchFrom, search_normal, search_to_distance,
-			allowLightSourcesInRecursion
-		);
-	}
+	//bool found_frot = false;
+
+	uint frot_found_count = 0;
+    float4 frot_found_data[5];
+    float3 frot_group_center, frot_group_normal, frot_max_proj_point;
+    float frot_group_max_length;
+
+
+	// 1. Gather the Group Data
+    [branch]
+    if(_OPS_FROT_MODE == 1){
+        ops_frot_gather(
+            searchFrom, search_normal, worldRadius, search_to_distance, length_z,
+            penetrator_ID, self_avatar_id, avoid_on_self_mask, channel_id, HalfWidth,
+            frot_found_count, frot_found_data,
+            frot_group_normal, frot_max_proj_point, frot_group_max_length
+        );
+
+        if (frot_found_count > 0) {
+            //Overwrite search params with the frot group's "Virtual Penetrator" data
+            searchFrom = frot_max_proj_point;
+            search_normal = frot_group_normal;
+            search_to_distance = frot_group_max_length * 1.6;
+        }
+    }
+
+	// 2. Search for the Orifice
+    ops_search_all(orificeRootLocal, orificeRootNormal, orificeRootUp,
+        found_orifice_id, searching_orifice_type, allow_recursion,
+        path_count, path_end,
+        within_range_valueIDs, within_range_index, within_range_used_values,
+        self_avatar_id, avoid_on_self_mask, channel_id,
+        searchFrom, search_normal, search_to_distance,
+        allowLightSourcesInRecursion
+    );
+
+
+	float3 frot_offset = float3(0,0,0);
+
+	// 3. Apply Frot Math & Offset
+    [branch]
+    if(frot_found_count > 0){
+		float new_radius;
+        ops_frot_apply(
+            frot_found_count, frot_found_data, frot_max_proj_point, frot_group_normal,
+			frot_group_max_length, length_z, 0.05,
+            found_orifice_id, orificeRootLocal, orificeRootNormal,
+            frot_offset, new_radius
+        );
+
+        if (found_orifice_id == -1) {
+            // Air Frot
+            orificeRootLocal = frot_max_proj_point;
+            orificeRootNormal = -frot_group_normal;
+            allow_recursion = false;
+            searching_orifice_type = uint4(OPS_hole_type_RING, OPS_hole_entry_direction_ONE_WAY, OPS_hole_alignment_CENTER_ALIGNED, 0);
+            path_count = 0;
+            path_end = 0;
+			worldRadius = new_radius; //assign new radius for radius penetrators
+        }
+		//orificeRootLocal += frot_offset;
+    }
+
+	//Reset search origin back to the local zero for bezier deformations
+    searchFrom = float3(0,0,0);
+    search_normal = float3(0,0,1);
+    search_to_distance = length_z * 1.6;
 
 	[loop]
 	for(int recursion_loop = 0; recursion_loop < _OPS_MAX_RECURSIVE_OPS; recursion_loop ++){
@@ -863,6 +1107,9 @@ void ops_apply(
 
 		//Move by radius amount 
 		orificeRootLocal += orifice_type.z == OPS_hole_alignment_RADIUS_ALIGNED ? orificeRootUp * worldRadius : 0;
+
+		//Modify orifice root by frot_offset AFTER radius check
+		orificeRootLocal += frot_offset;
 
 
 		//SearchFrom is the current starting point, orifice root&normal is hole and hole directions
@@ -929,11 +1176,14 @@ void ops_apply(
 					uint reading_index = path * dynamic_offset_Orafice_Per_Path + Total_Orafice_Written_Values;
 					float3 path_point = sps_toLocal(readInlineFloat3Data(reading_index, found_orifice_id));
 					float3 path_normal = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(reading_index + dynamic_offset_Orafice_Path_forward_vec_x, found_orifice_id)));
-					
+
 					if(orifice_type.z == OPS_hole_alignment_RADIUS_ALIGNED){
 						float3 path_up = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(reading_index + offset_Orafice_world_up_vec_x, found_orifice_id)));
 						path_point += path_up * worldRadius;
 					}
+
+					//Apply frot offset after radius
+					path_point += frot_offset;
 
 					float Distance_To_Next_Path_Point = distance(Current_Path_Point, path_point);
 
@@ -999,6 +1249,9 @@ void ops_apply(
 						float3 path_up = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(reading_index + offset_Orafice_world_up_vec_x, found_orifice_id)));
 						path_point += path_up * worldRadius;
 					}
+
+					//Apply frot offset after radius
+					path_point += frot_offset;
 					
 					//returns early if Dist_After_Hole_of_vert is less than curveLength
 					calculate_bezier_points(bezierPos, bezierForward, bezierRight, bezierUp, curveLength,
