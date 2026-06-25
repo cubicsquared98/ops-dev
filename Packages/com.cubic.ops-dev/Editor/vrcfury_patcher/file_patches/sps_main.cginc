@@ -301,9 +301,7 @@ void ops_search_within_found_range(inout float3 orificeRootLocal, inout float3 o
 }
 
 //Function finds first __max_frot_count_find penetrators within the search_to_max_distance, and checks if they have frot mode enabled
-//TODO: OPTIMISE THIS FUNCTION:
-//normals array can be removed
-//Other stuff can also be optimised
+//Does not think about distances
 void ops_pen_search(
 	float3 search_from_point, float3 search_normal, float search_radius, float search_to_max_distance, float search_penetrator_length,
 	uint self_ID, uint self_avatar_ID, int avoid_on_self_mask, int channel_id,
@@ -312,6 +310,9 @@ void ops_pen_search(
 ){
 	#define __max_frot_count 5
 	#define __max_frot_count_find (__max_frot_count - 1)
+	#define TWO_PI 6.28318530718f
+	// 1.0/TWO_PI
+    #define INV_TWO_PI 0.159154943f
 
 
 	//read from bottom screen for Max ID overlaps of penetrators
@@ -322,24 +323,14 @@ void ops_pen_search(
 	int Total_Ids = min(_OPS_TextureExists() ? round(read_data.r * getMultiplierDecode()): 0, 2000); //If no ops texture, will instantly fallback to sps search
 
 
-	float Closest_Distance = 1e30;
-	int closest = -1;
-	bool closest_is_behind = false;
+	//If the only penetrator
+	//if (Total_Ids <= 1) return;
 
 	float search_to_distance_sq = search_to_max_distance*search_to_max_distance;
 	
-	//Some shader version didnt like this, so going back
-	float3 found_other_positions[__max_frot_count];// = (float3[__max_frot_count])0;
-	float3 found_other_normals[__max_frot_count];//   = (float3[__max_frot_count])0;
-	float found_other_radius[__max_frot_count];//    = (float[__max_frot_count])0;
-	//float found_other_length[__max_frot_count];
-
-	for(int i = 0; i < __max_frot_count; i++) {
-		found_other_positions[i] = float3(0,0,0);
-		found_other_normals[i] = float3(0,0,0);
-		found_other_radius[i] = 0.0;
-	}
-
+	float4 found_other_data[__max_frot_count];
+	float3 averageDirection = search_normal;//found_other_normals[0];
+	float3 sum_positions = search_from_point;
 
 	
 	uint found_count = 0;
@@ -387,65 +378,48 @@ void ops_pen_search(
 
 		float3 normal = sps_normalize(end_point - other_deform_point);
 		float radius = distance(other_start_point, radius_point);
-		// float length = distance(other_start_point, end_point);
 
-		// //If facing the opposite direction at all then treat the start point as the end point
-		// if (dot(normal, search_normal) < 0.0) {
-        //     normal = -normal;
-        //     other_start_point = end_point;
-        // }
 
 		//If within the search range, we will count it
-		found_other_positions[found_count] = other_deform_point;
-		found_other_normals[found_count] = normal;
-		found_other_radius[found_count] = radius;
-		//found_other_length[found_count] = length;
+		found_other_data[found_count].xyz = other_deform_point;
+		averageDirection += normal;
+		found_other_data[found_count].w = radius;
+		sum_positions += other_deform_point;
 
 		found_count++;
 		if(found_count >= __max_frot_count_find) break;
 	}
 	[branch]
 	if(found_count == 0){
+		// Initialize outputs to defaults
 		frot_found = false;
-		use_position = float3(0,0,0);
-		use_normal = float3(0,0,0);
+		use_position = float3(0, 0, 0);
+		use_normal = float3(0, 0, 0);
 		return;
 	}
 
-	found_other_positions[found_count] = search_from_point;
-	found_other_normals[found_count] = search_normal;
-	found_other_radius[found_count] = search_radius;
-	//found_other_length[found_count] = search_penetrator_length;
+	averageDirection = normalize(averageDirection);
+
+	found_other_data[found_count].xyz = search_from_point;
+	found_other_data[found_count].w = search_radius;
 	found_count ++;
 
-	float3 averageDirection = found_other_normals[0];
-	float3 averageCenter = found_other_positions[0];
-
-	for(int i = 1; i < __max_frot_count; i++){
-		averageCenter += found_other_positions[i];
-		averageDirection += found_other_normals[i];
-	}
-	averageDirection = normalize(averageDirection);
-	averageCenter /= found_count;
+	float3 averageCenter = sum_positions / (float)found_count;
 
 	// Determine the furthest ahead position along the new normal
-	float maxProj = dot(found_other_positions[0], averageDirection);
-	for (uint m_idx = 1; m_idx < found_count; m_idx++) {
-		float proj = dot(found_other_positions[m_idx], averageDirection);
-		maxProj = max(maxProj, proj);
+	float maxProj = dot(found_other_data[0].xyz, averageDirection);
+	[unroll]
+	for (uint m_idx = 1; m_idx < __max_frot_count; m_idx++) {
+		if (m_idx < found_count) {
+			float proj = dot(found_other_data[m_idx].xyz, averageDirection);
+			maxProj = max(maxProj, proj);
+		}
 	}
 
+	//Shift the penetration point
 	float centerProj = dot(averageCenter, averageDirection);
-	float3 forwardShift = ((maxProj - centerProj) * averageDirection) + (search_penetrator_length * 0.1 * averageDirection);
+	float3 forwardShift = ((maxProj - centerProj) * averageDirection) + (search_penetrator_length * 0.25 * averageDirection);
 	averageCenter += forwardShift;
-
-	//Should make it interpolate smoothly somehow, possibly a weight value per each penetrator, affects the calculations across this function based on its weight deemed by how close it is to the center point
-	// for (uint i = 0; i < found_count; i++) {
-	// 	float dist_to_p = distance(found_other_positions[i], averageCenter);
-	// 	float radius_interpolate = sps_saturated_map(dist_to_p, found_other_length[i]*1.2, found_other_length[i]*1.6);
-	// 	found_other_radius[i] = lerp(0, found_other_radius[i], radius_interpolate);
-	// }
-
 
 	//Define 2D Plane Basis (Right / Forward)
 	float3 upVec = abs(averageDirection.y) > 0.99f ? float3(1, 0, 0) : float3(0, 1, 0);
@@ -455,89 +429,93 @@ void ops_pen_search(
 
 	// Project to 2D Plane & Calculate Angles
 	float angles[__max_frot_count];
-	uint sorted_indicies[__max_frot_count];// = {0,1,2,3,4,5}; //index's here get sorted based on angle
 
-	//Hopefully this gets compiled out by the compiler
-	for(uint e = 0; e < __max_frot_count; e++){
-		sorted_indicies[e] = e;
-	}
+	[unroll]
+    for (uint j = 0; j < __max_frot_count; j++) {
+        if(j < found_count) {
+            float3 delta = found_other_data[j].xyz - averageCenter;
+            angles[j] = atan2(dot(delta, forward), dot(delta, right)); //Y and X 
+        } else {
+            angles[j] = 999.0f; //End up sorted into the last place, over the angle limit for a full circle so will always be sorted into last
+        }
+    }
 
+    
 
-	for (uint j = 0; j < found_count; j++) {
-		float3 delta = found_other_positions[j] - averageCenter;
-		float x = dot(delta, right);
-		float y = dot(delta, forward);
-		angles[j] = atan2(y, x);
-	}
+	//Track which index is our penetrator
+	uint my_index = found_count - 1;
 
-	// Conditional Sort by Angle IF more than 3
-	//if (found_count >= 4) {
-		for (uint k = 1; k < found_count; k++) {
-			float keyAngle = angles[sorted_indicies[k]];
-
-			uint sorted_index = sorted_indicies[k];
-			
-			int w = (int)k - 1;
-			while (w >= 0 && angles[sorted_indicies[w]] > keyAngle) {
-				sorted_indicies[w + 1] = sorted_indicies[w];
-				w--;
-			}
-			sorted_indicies[w + 1] = sorted_index;
-		}
-	//}
-
-	//we now have an array of sorted indicies
-
-
+	#define SORT_SWAP(i, j) \
+    if(angles[i] > angles[j]) { \
+        if (my_index == i) my_index = j; \
+        else if (my_index == j) my_index = i; \
+        /* Swap Angles */ \
+        float temp_ang = angles[i]; \
+        angles[i] = angles[j]; \
+        angles[j] = temp_ang; \
+        /* Swap other penetrator data */ \
+        float4 temp_data = found_other_data[i]; \
+        found_other_data[i] = found_other_data[j]; \
+        found_other_data[j] = temp_data; \
+    }
+	//static swaps to sort the 5 items instead of looping
+	SORT_SWAP(0, 1); SORT_SWAP(3, 4);
+    SORT_SWAP(2, 4); SORT_SWAP(2, 3);
+    SORT_SWAP(0, 3); SORT_SWAP(0, 2);
+    SORT_SWAP(1, 4); SORT_SWAP(1, 3); SORT_SWAP(1, 2);
+    #undef SORT_SWAP
 
 	//sums up the radius's, with the overlap
 	float d[__max_frot_count];
 	float sumD = 0;
 
-	for (uint m = 0; m < found_count; m++) {
-		float r1 = found_other_radius[sorted_indicies[m]];
-		float r2 = found_other_radius[sorted_indicies[(m + 1) % found_count]];
-		d[m] = r1 + r2 - (overlap_percent * min(r1, r2));
-		sumD += d[m];
-	}
+	[unroll]
+    for (uint m = 0; m < __max_frot_count; m++) {
+        if(m < found_count) {
+            float r1 = found_other_data[m].w;
+            uint next_idx = (m + 1 == found_count) ? 0 : m + 1; 
+            float r2 = found_other_data[next_idx].w;
+            d[m] = r1 + r2 - (overlap_percent * min(r1, r2));
+            sumD += d[m];
+        }
+    }
 
 	//Calculate Radius and Target Angles
-	float R = sumD / 6.28318530718f;
+	float R = sumD * INV_TWO_PI;
 	float thetas[__max_frot_count];
 	thetas[0] = 0;
 	
-	for (uint n = 0; n < found_count - 1; n++) {
-		thetas[n + 1] = thetas[n] + (d[n] / sumD) * 6.28318530718f;
+	[unroll]
+	for (uint n = 0; n < __max_frot_count - 1; n++) {
+		if(n < found_count - 1) {
+            thetas[n + 1] = thetas[n] + (d[n] / sumD) * TWO_PI;
+        }
 	}
 
 
 	// Calculate Optimal Rotation, average difference from re-calculated angles
 	float sumCos = 0;
 	float sumSin = 0;
-	for (uint p = 0; p < found_count; p++) {
-		float diff = angles[sorted_indicies[p]] - thetas[p];
-		sumCos += cos(diff);
-		sumSin += sin(diff);
+	[unroll]
+	for (uint p = 0; p < __max_frot_count; p++) {
+		if(p < found_count) {
+            float diff = angles[p] - thetas[p];
+            sumCos += cos(diff);
+            sumSin += sin(diff);
+        }
 	}
 	float optRot = atan2(sumSin, sumCos);
 
 
-	// Find this specific vertex's cylinder instance in the sorted data
-	float finalAngle;
-	for (uint q = 0; q < found_count; q++) {
-		if (sorted_indicies[q] == found_count - 1) {
-			finalAngle = thetas[q] + optRot;
-			break;
-		}
-	}
+	//Find this specific vertex's penetrator in the sorted data
+	float finalAngle = thetas[my_index] + optRot;
+
 	float localX = R * cos(finalAngle);
 	float localY = R * sin(finalAngle);
 	use_position = averageCenter + (localX * right) + (localY * forward);
-	use_normal = averageDirection; //The final direction
+	use_normal = averageDirection;
 	frot_found = true;
 }
-
-
 
 void calculate_lerps(inout float bezierLerp, inout float dumbLerp,
 	float entranceAngle, float exitAngle, float active,

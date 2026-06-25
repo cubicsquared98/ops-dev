@@ -27,8 +27,6 @@ namespace ops_dev.Components {
 
 
         [Header("Advanced Penetrator Properties")]
-        [Tooltip("Auto disable shadows when deformation is enabled")]
-        public bool AutoDisableMeshShadowsOnDeformation = false;
         public Color penetratorGlowColor = Color.black;
         [Range(0f, 1f)]
         public float emissionStrength = 0f;
@@ -36,6 +34,14 @@ namespace ops_dev.Components {
         public int avoidOnSelfChannel = -1;
         [Tooltip("Will only deform with other ops components sharing the same channel ID (-1 means ignore)")]
         public int SelectedChannel = -1;
+
+        [Header("Shadow disabling")]
+        [Tooltip("Auto disable unity shadows when deformation is enabled on the mesh. This is recommended if penetrator is on its own mesh.")]
+        public bool AutoDisableMeshShadowsOnDeformation = false;
+        //[Tooltip("Disables unity shadows all the time for deformation material. This is recommended if the mesh is shared with other parts you want unity shadows to work on.")]
+        //public bool ForceSetMaterialToTransparentRenderQueue = false;
+        //[Tooltip("The material to mat swap with that works with unity shadows. Is optional, otherwise will always have no shadows")]
+        //public Material optionalOriginalMaterialWithShadows;
 
         [Header("Advanced Penetrator bone data (to allow bone scaling in the x/y axis(not length) within penetrator)")]
         [Header("This will be automated in the future")]
