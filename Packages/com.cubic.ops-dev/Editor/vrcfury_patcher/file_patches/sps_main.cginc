@@ -600,7 +600,7 @@ void ops_frot_gather(
         averageDirection += normal * weight;
         sum_positions += other_deform_point * weight;
 		sum_end_positions += end_point * weight;
-		sum_weights += weight; //Add to total divisor
+		sum_weights += weight;
 
         found_count++;
         if(found_count >= 4) break;
@@ -636,9 +636,8 @@ void ops_frot_gather(
 				float rawProj = dot(found_other_data[m_idx].xyz, averageDirection);
                 float rawEndProj = dot(found_end_points[m_idx].xyz, averageDirection);
 
-				// Lerp from the center out to the true position.
-                // Weight 0.0 = boundary stays at center. Weight 1.0 = boundary goes to actual tip.
-				
+				//Lerp each check, so that is all smooth
+
 				float effectiveProj = lerp(centerProj, rawProj, weight);
                 float effectiveEndProj = lerp(centerEndProj, rawEndProj, weight);
                 
