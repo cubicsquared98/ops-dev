@@ -527,8 +527,11 @@ void ops_frot_gather(
 
 	found_count = 0;
     float3 sum_positions = search_from_point;
+	float3 sum_end_positions = search_from_point + (search_normal * search_penetrator_length);
     float3 averageDirection = search_normal;
     group_length = search_penetrator_length;
+
+	float sum_weights = 1.0;
 
 	
 	uint4 ID_space = getIDSpace(ID_SPACE_PENETRATOR);
@@ -537,8 +540,8 @@ void ops_frot_gather(
 
     float search_to_distance_sq = search_to_max_distance * search_to_max_distance;
 
-	
-	float3 found_end_points[5];
+	//end pos xyz, weighting w
+	float4 found_end_points[5];
 
 	[loop]
     for(int i = 1; i <= Total_Ids; i++){
@@ -569,21 +572,35 @@ void ops_frot_gather(
 
         const float3 delta_other = (other_deform_point - end_point) * 1.6;
         const float other_search_length_square = dot(delta_other, delta_other);
+		float actual_cutoff_sq = min(search_to_distance_sq, other_search_length_square);
 
-        if(distance_to_sq > min(search_to_distance_sq, other_search_length_square)) continue;
+        if(distance_to_sq > actual_cutoff_sq) continue;
 
-        float3 radius_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_radius_up_point_x, i));
+		//distance fading
+        float actual_cutoff = sqrt(actual_cutoff_sq);
+        float fade_start = actual_cutoff * 0.6; //Starts fading at 60% of max range
+        float fade_end = actual_cutoff;
+        float dist_to_other = sqrt(distance_to_sq);
+
+		float weight = 1.0 - sps_saturated_map(dist_to_other, fade_start, fade_end);
+        if (weight <= 0.0) continue; //Skip if weight evaluates to 0
+		
+		
+		float3 radius_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_radius_up_point_x, i));
         float3 other_start_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_start_point_x, i));
         float radius = distance(other_start_point, radius_point);
 
         float3 normal = sps_normalize(end_point - other_deform_point);
 
         found_other_data[found_count].xyz = other_deform_point;
-        found_other_data[found_count].w = radius;
-		found_end_points[found_count] = end_point;
+        found_other_data[found_count].w = radius * weight;
+		found_end_points[found_count].xyz = end_point;
+		found_end_points[found_count].w = weight;
 
-        averageDirection += normal;
-        sum_positions += other_deform_point;
+        averageDirection += normal * weight;
+        sum_positions += other_deform_point * weight;
+		sum_end_positions += end_point * weight;
+		sum_weights += weight; //Add to total divisor
 
         found_count++;
         if(found_count >= 4) break;
@@ -595,29 +612,42 @@ void ops_frot_gather(
 		//Add our penetrator to the found data
         found_other_data[found_count].xyz = search_from_point;
         found_other_data[found_count].w = search_radius;
-		found_end_points[found_count] = search_from_point + (search_normal * search_penetrator_length);
-        found_count++;
+		found_end_points[found_count].xyz = search_from_point + (search_normal * search_penetrator_length);
+        found_end_points[found_count].w = 1.0;
+		found_count++;
 
-        float3 group_average_center = sum_positions / (float)found_count;
+        float3 group_average_center = sum_positions / sum_weights;
+		float3 group_average_end_center = sum_end_positions / sum_weights;
         group_average_normal = averageDirection;
 
         // Find the furthest projected point along the new normal (NO forward shift yet)
-        float maxProj = dot(found_other_data[0].xyz, averageDirection);
-		float maxEndProj = dot(found_end_points[0], averageDirection);
+		
+		float centerProj = dot(group_average_center, averageDirection);
+		float centerEndProj = dot(group_average_end_center, averageDirection);
+
+        float maxProj = centerProj;
+		float maxEndProj = centerEndProj;
 
         [unroll]
-        for (uint m_idx = 1; m_idx < 5; m_idx++) {
+        for (uint m_idx = 0; m_idx < 5; m_idx++) {
             if (m_idx < found_count) {
-                float proj = dot(found_other_data[m_idx].xyz, averageDirection);
-                maxProj = max(maxProj, proj);
+				float weight = found_end_points[m_idx].w;
 
-				float endProj = dot(found_end_points[m_idx], averageDirection);
-                maxEndProj = max(maxEndProj, endProj);
+				float rawProj = dot(found_other_data[m_idx].xyz, averageDirection);
+                float rawEndProj = dot(found_end_points[m_idx].xyz, averageDirection);
+
+				// Lerp from the center out to the true position.
+                // Weight 0.0 = boundary stays at center. Weight 1.0 = boundary goes to actual tip.
+				
+				float effectiveProj = lerp(centerProj, rawProj, weight);
+                float effectiveEndProj = lerp(centerEndProj, rawEndProj, weight);
+                
+                maxProj = max(maxProj, effectiveProj);
+                maxEndProj = max(maxEndProj, effectiveEndProj);
             }
         }
-        float centerProj = dot(group_average_center, averageDirection);
-        group_max_proj_point = group_average_center + ((maxProj - centerProj) * averageDirection);
-		group_length = max(0.0, maxEndProj - maxProj);
+		group_max_proj_point = group_average_center + ((maxProj - centerProj) * averageDirection);
+        group_length = max(0.0, maxEndProj - maxProj);
     } else {
         //Default to penetrator search values
         group_average_normal = search_normal;
