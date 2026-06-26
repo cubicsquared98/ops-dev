@@ -522,13 +522,13 @@ void ops_frot_gather(
     float3 search_from_point, float3 search_normal, float search_radius, float search_to_max_distance, float search_penetrator_length,
     uint self_ID, uint self_avatar_ID, int avoid_on_self_mask, int channel_id, float half_screen,
     out uint found_count, out float4 found_other_data[5], 
-    out float3 group_average_normal, out float3 group_max_proj_point, out float group_max_length
+    out float3 group_average_normal, out float3 group_max_proj_point, out float group_length
 ) {
 
 	found_count = 0;
     float3 sum_positions = search_from_point;
     float3 averageDirection = search_normal;
-    group_max_length = search_penetrator_length;
+    group_length = search_penetrator_length;
 
 	
 	uint4 ID_space = getIDSpace(ID_SPACE_PENETRATOR);
@@ -536,6 +536,9 @@ void ops_frot_gather(
     int Total_Ids = min(_OPS_TextureExists() ? round(read_data.r * getMultiplierDecode()) : 0, 2000);
 
     float search_to_distance_sq = search_to_max_distance * search_to_max_distance;
+
+	
+	float3 found_end_points[5];
 
 	[loop]
     for(int i = 1; i <= Total_Ids; i++){
@@ -572,28 +575,27 @@ void ops_frot_gather(
         float3 radius_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_radius_up_point_x, i));
         float3 other_start_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_start_point_x, i));
         float radius = distance(other_start_point, radius_point);
-        float length = distance(other_deform_point, end_point);
 
         float3 normal = sps_normalize(end_point - other_deform_point);
 
         found_other_data[found_count].xyz = other_deform_point;
         found_other_data[found_count].w = radius;
+		found_end_points[found_count] = end_point;
+
         averageDirection += normal;
         sum_positions += other_deform_point;
 
-		//This value should be converted to distance from center point/deform point of frot group to end_point.
-		//TODO: this can be done by merging the below maxProj loop into this search loop, and storing the furthest end_point that is furthest when parrallel with the centerProj / average direction
-        group_max_length = max(group_max_length, length);
-
         found_count++;
-        if(found_count >= 4) break; 
+        if(found_count >= 4) break;
     }
 
 	[branch]
     if(found_count > 0) {
         averageDirection = normalize(averageDirection);
+		//Add our penetrator to the found data
         found_other_data[found_count].xyz = search_from_point;
         found_other_data[found_count].w = search_radius;
+		found_end_points[found_count] = search_from_point + (search_normal * search_penetrator_length);
         found_count++;
 
         float3 group_average_center = sum_positions / (float)found_count;
@@ -601,49 +603,62 @@ void ops_frot_gather(
 
         // Find the furthest projected point along the new normal (NO forward shift yet)
         float maxProj = dot(found_other_data[0].xyz, averageDirection);
+		float maxEndProj = dot(found_end_points[0], averageDirection);
+
         [unroll]
         for (uint m_idx = 1; m_idx < 5; m_idx++) {
             if (m_idx < found_count) {
                 float proj = dot(found_other_data[m_idx].xyz, averageDirection);
                 maxProj = max(maxProj, proj);
+
+				float endProj = dot(found_end_points[m_idx], averageDirection);
+                maxEndProj = max(maxEndProj, endProj);
             }
         }
         float centerProj = dot(group_average_center, averageDirection);
         group_max_proj_point = group_average_center + ((maxProj - centerProj) * averageDirection);
+		group_length = max(0.0, maxEndProj - maxProj);
     } else {
-        //Default to penetrator
+        //Default to penetrator search values
         group_average_normal = search_normal;
         group_max_proj_point = search_from_point;
     }
 }
 
 void ops_frot_apply(
-    uint found_count, inout float4 found_other_data[5], float3 group_average_projected_center, float3 group_average_normal, 
-    float group_max_length, float search_penetrator_length, float overlap_percent,
-    int found_orifice_id, float3 orifice_pos, float3 orifice_normal,
-	out float3 frot_offset, out float new_radius
+    uint found_count, inout float4 found_other_data[5], inout float3 group_average_projected_center, inout float3 group_average_normal, 
+    float group_length, float search_penetrator_length, float overlap_percent,
+    int found_orifice_id, float3 orifice_pos, float3 orifice_normal, uint orifice_direction,
+	out float3 frot_offset, out float new_radius, out float lerp_factor
 ) {
 	#define TWO_PI 6.28318530718f
     #define INV_TWO_PI 0.159154943f
 
+	lerp_factor = 0.0;
 
-	//1. Magnetic Bending
+	float3 forwardShift = (search_penetrator_length * 0.25 * group_average_normal);
+	group_average_projected_center + forwardShift;
     if (found_orifice_id != -1) {
         float dist_to_hole = distance(group_average_projected_center, orifice_pos);
         // Blend boundaries based on the longest penetrator in the group
-        float blend_start = group_max_length * 1.6;
-        float blend_end = group_max_length * 1;
-        float pull_factor = 1.0 - sps_saturated_map(dist_to_hole, blend_end, blend_start);
+		//Uhh idk what went wrong with the maths here, but this works. needs looking into some more
+        float blend_start = group_length * 1.6;
+        float blend_end = group_length * 1.35; //Really this should just be 1.0, but thats like 50% down the frot group
+        lerp_factor = 1.0 - sps_saturated_map(dist_to_hole, blend_end, blend_start);
 
-        group_average_projected_center = lerp(group_average_projected_center, orifice_pos, pull_factor);
-        group_average_normal = normalize(lerp(group_average_normal, -orifice_normal, pull_factor));
+        group_average_projected_center = lerp(group_average_projected_center, orifice_pos, lerp_factor);
+        
+		//for reverse holes
+		float3 target_normal = -orifice_normal;
+        if (dot(group_average_normal, target_normal) < 0.0 && orifice_direction == OPS_hole_entry_direction_TWO_WAY) {
+            target_normal = -target_normal; 
+        }
+		group_average_normal = normalize(lerp(group_average_normal, target_normal, lerp_factor));
     } else {
-        float3 forwardShift = (search_penetrator_length * 0.25 * group_average_normal);
-        group_average_projected_center += forwardShift;
+		//group_average_projected_center += forwardShift;
     }
 
-
-	// 2. 2D Plane Projection & Sorting
+	//2D Plane Projection at the orifice for organising where penetrators go
     float3 upVec = abs(group_average_normal.y) > 0.99f ? float3(1, 0, 0) : float3(0, 1, 0);
     float3 right = normalize(cross(upVec, group_average_normal));
     float3 forward = normalize(cross(group_average_normal, right));
@@ -661,6 +676,7 @@ void ops_frot_apply(
 
 	uint my_index = found_count - 1;
 
+	//Sort the orifices by angle
     #define SORT_SWAP(i, j) \
     if(angles[i] > angles[j]) { \
         if (my_index == i) my_index = j; \
@@ -1014,28 +1030,28 @@ void ops_apply(
 	uint frot_found_count = 0;
     float4 frot_found_data[5];
     float3 frot_group_center, frot_group_normal, frot_max_proj_point;
-    float frot_group_max_length;
+    float frot_group_length;
 
 
-	// 1. Gather the Group Data
+	//get the frotting data
     [branch]
     if(_OPS_FROT_MODE == 1){
         ops_frot_gather(
             searchFrom, search_normal, worldRadius, search_to_distance, length_z,
             penetrator_ID, self_avatar_id, avoid_on_self_mask, channel_id, HalfWidth,
             frot_found_count, frot_found_data,
-            frot_group_normal, frot_max_proj_point, frot_group_max_length
+            frot_group_normal, frot_max_proj_point, frot_group_length
         );
 
         if (frot_found_count > 0) {
             //Overwrite search params with the frot group's "Virtual Penetrator" data
             searchFrom = frot_max_proj_point;
             search_normal = frot_group_normal;
-            search_to_distance = frot_group_max_length * 1.6;
+            search_to_distance = frot_group_length * 1.6;
         }
     }
 
-	// 2. Search for the Orifice
+	//Perform orifice search
     ops_search_all(orificeRootLocal, orificeRootNormal, orificeRootUp,
         found_orifice_id, searching_orifice_type, allow_recursion,
         path_count, path_end,
@@ -1048,27 +1064,29 @@ void ops_apply(
 
 	float3 frot_offset = float3(0,0,0);
 
-	// 3. Apply Frot Math & Offset
+	float frot_hole_lerp_factor = 1.0;
+
+	//Apply Frot deforming and get offsets
     [branch]
     if(frot_found_count > 0){
 		float new_radius;
         ops_frot_apply(
             frot_found_count, frot_found_data, frot_max_proj_point, frot_group_normal,
-			frot_group_max_length, length_z, 0.05,
-            found_orifice_id, orificeRootLocal, orificeRootNormal,
-            frot_offset, new_radius
+			frot_group_length, length_z, 0.05,
+            found_orifice_id, orificeRootLocal, orificeRootNormal, searching_orifice_type.y,
+            frot_offset, new_radius, frot_hole_lerp_factor
         );
 
         if (found_orifice_id == -1) {
             // Air Frot
-            orificeRootLocal = frot_max_proj_point;
-            orificeRootNormal = -frot_group_normal;
             allow_recursion = false;
             searching_orifice_type = uint4(OPS_hole_type_RING, OPS_hole_entry_direction_ONE_WAY, OPS_hole_alignment_CENTER_ALIGNED, 0);
             path_count = 0;
             path_end = 0;
-			worldRadius = new_radius; //assign new radius for radius penetrators
         }
+		orificeRootLocal = frot_max_proj_point;
+		orificeRootNormal = -frot_group_normal;
+		worldRadius = new_radius; //assign new radius for radius penetrators
 		//orificeRootLocal += frot_offset;
     }
 
@@ -1105,8 +1123,8 @@ void ops_apply(
 		}
 		orifice_type = searching_orifice_type;
 
-		//Move by radius amount 
-		orificeRootLocal += orifice_type.z == OPS_hole_alignment_RADIUS_ALIGNED ? orificeRootUp * worldRadius : 0;
+		//Move by radius amount
+		orificeRootLocal += lerp(float3(0,0,0), orifice_type.z == OPS_hole_alignment_RADIUS_ALIGNED ? orificeRootUp * worldRadius : 0, frot_hole_lerp_factor);
 
 		//Modify orifice root by frot_offset AFTER radius check
 		orificeRootLocal += frot_offset;
