@@ -16,6 +16,19 @@ int _OPS_PENETRATOR_AVOID_ON_SELF_MASK;
 int _OPS_ID_CHANNEL;
 
 
+#define _OPS_MAX_RECURSIVE_OPS 10
+
+bool IsBehind(float3 targetPos, float3 referencePos, float3 normalDir)
+{
+	// Vector from the reference point to the target point
+	float3 toTarget = targetPos - referencePos;
+	//dot product it
+	float d = dot(toTarget, normalDir);
+	
+	return d < 0.0;
+}
+
+
 //ops shader
 
 //Finds nearby and the closest orifice. Make sure to pass on the found_orifice_id to the next search so that we know if the prev was using ops or not.
@@ -131,7 +144,7 @@ void ops_search_all(inout float3 orificeRootLocal, inout float3 orificeRootNorma
 	else{
 		//Backup search for light source using sps logic
 		int sps_orifice_type = SPS_TYPE_INVALID;
-		sps_light_search_only(searchFrom, orificeRootNormal, orificeRootLocal, sps_orifice_type);
+		sps_light_search(searchFrom, sps_orifice_type, orificeRootLocal, orificeRootNormal);
 		found_orifice_id = -1; //-1 means no ID associated with this orifice
 		const float3 delta = orificeRootLocal - searchFrom;
 		const float distance_to_sq = dot(delta, delta);
@@ -259,7 +272,7 @@ void ops_search_within_found_range(inout float3 orificeRootLocal, inout float3 o
 	else if (found_orifice_id != -1 && allowLightSourcesInRecursion){
 		//Backup search for light source using sps logic
 		int sps_orifice_type = SPS_TYPE_INVALID;
-		sps_light_search_only(searchFrom, orificeRootNormal, orificeRootLocal, sps_orifice_type);
+		sps_light_search(searchFrom, sps_orifice_type, orificeRootLocal, orificeRootNormal);
 		found_orifice_id = -1; //-1 means no ID associated with this orifice
 		const float3 delta = orificeRootLocal - searchFrom;
 		const float distance_to_sq = dot(delta, delta);
@@ -836,7 +849,7 @@ void calculate_bezier_points(
 
 	//Gets a point on the bezier at distance Z for the vertex.
 	//Returns the length of the entire curve (start-end point), and the position of the bezier for this point
-	sps_bezierSolve_opt(p0, p1, p2, p3, distance_along_line, reference_up, curveLength, bezierPos, bezierForward, bezierUp);
+	sps_bezierSolve_ops(p0, p1, p2, p3, distance_along_line, reference_up, curveLength, bezierPos, bezierForward, bezierUp);
 
 
 	//Force the upwards direction if passed the start, prevent rolling, set dist to 1 cm, might need to set it higher, prevents bad rolling that occurs due to the bezier
