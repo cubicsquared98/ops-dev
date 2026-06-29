@@ -20,7 +20,7 @@ namespace ops_dev.Editor.Builders {
             //Check if any ops orifices exist
             if (orifii.Length == 0) return true;
 
-            string folderPath = "Packages/com.cubic.ops-dev/Runtime/ops_generated";
+            string folderPath = "Packages/com.cubic.ops-dev/Runtime/ops_generated/orifice";
             if (!AssetDatabase.IsValidFolder(folderPath)) AssetDatabase.CreateFolder("Packages/com.cubic.ops-dev/Runtime/ops_generated", "orifice");
 
             List<OpsIDWriter> writers = new List<OpsIDWriter>(avatarGameObject.GetComponentsInChildren<OpsIDWriter>(true));
@@ -76,7 +76,7 @@ namespace ops_dev.Editor.Builders {
                 UnityEditor.AssetDatabase.ImportAsset(materialFolder);
             }
 
-            //Debug.LogError("Building orifice for: " + materialFolder);
+            //Debug.LogError("[OpsOrificeBuilder] Building orifice for: " + materialFolder);
 
             // Determine Mesh Asset Path
             bool hasPathPoints = settings.pathPoints != null && settings.pathPoints.Count > 0;

@@ -8,6 +8,8 @@ using UnityEngine.Rendering;
 using VRC.SDKBase.Editor.BuildPipeline;
 using VRC.SDK3.Avatars.Components;
 using ops_dev.Components;
+using ops_dev.Patchers;
+using UnityEditor.PackageManager;
 
 namespace ops_dev.Editor.Builders {
     public class OpsPenetratorBuilder : IVRCSDKPreprocessAvatarCallback
@@ -48,6 +50,9 @@ namespace ops_dev.Editor.Builders {
 
                 //Puts together the gameobject for the ops penetrator - also adding an ops ID writer to it
                 GameObject generatedMesh = CreateSkinnedTriangle(folderPath, avatar_ID_Base.transform, hashSeed, hashSeedAvi, penetrator);
+                if(generatedMesh == null){
+                    return false;
+                }
                 generatedMeshes.Add(penetrator, new GameObject[] {generatedMesh, penetrator.penetratorMeshObject.gameObject});
 
                 //Should be disabled by default
@@ -75,9 +80,8 @@ namespace ops_dev.Editor.Builders {
 
             // Setup Unique Folder
             string uniqueID = settings.name + "_" + System.DateTime.Now.Ticks.ToString();
-            string rootDir = Path.GetDirectoryName(savePath);
             string folderName = "Penetrator_" + uniqueID;
-            string finalFolderPath = Path.Combine(rootDir, folderName).Replace("\\", "/");
+            string finalFolderPath = Path.Combine(savePath, folderName).Replace("\\", "/");
 
             if (!Directory.Exists(finalFolderPath))
             {
@@ -103,8 +107,18 @@ namespace ops_dev.Editor.Builders {
             SkinnedMeshRenderer sps_plug_smrenderer = settings.penetratorMeshObject.GetComponent<SkinnedMeshRenderer>();
             Material[] sps_mats = sps_plug_smrenderer.sharedMaterials;
 
+            var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(OpsPenetratorBuilder).Assembly);
+            string packageVersion = packageInfo.version;
+
             //Apply the new HashID to the penetrator sps material
             foreach(Material sps_mat in sps_mats){
+
+                //Patch ops into the sps materials
+                if(!SpsToOpsShaderPatcher.PatchAndAssignOpsShader(sps_mat, packageVersion, true)){
+                    Debug.LogError("[OpsPenetratorBuilder] OPS PATCHING FAILED");
+                    return null;
+                } //settings.smr_bones.Count > 0
+
                 sps_mat.SetInt("_OPS_HASH_SEED", hash_seed);
                 sps_mat.SetInt("_OPS_SKINNED_BONES_OFFSET", settings.starting_index);
                 sps_mat.SetInt("_OPS_SKINNED_BONES_ENABLED", settings.smr_bones.Count > 0 ? 1 : 0);

@@ -24,13 +24,13 @@ namespace ops_dev.Editor.Tools {
         {
             if (targetRenderer == null)
             {
-                Debug.LogWarning("Cannot fetch bones: No Target Renderer assigned.", this);
+                Debug.LogWarning("[SkinnedMeshBoneEditor] Cannot fetch bones: No Target Renderer assigned.", this);
                 return;
             }
 
             //Copy references from the SkinnedMeshRenderer to our exposed array
             bonesList = targetRenderer.bones;
-            Debug.Log($"Fetched {bonesList.Length} bones from {targetRenderer.name}.", this);
+            Debug.Log($"[SkinnedMeshBoneEditor] Fetched {bonesList.Length} bones from {targetRenderer.name}.", this);
         }
 
         [ContextMenu("Apply Changes to Renderer")]
@@ -38,13 +38,13 @@ namespace ops_dev.Editor.Tools {
         {
             if (targetRenderer == null)
             {
-                Debug.LogError("Cannot apply changes: No Target Renderer assigned.", this);
+                Debug.LogError("[SkinnedMeshBoneEditor] Cannot apply changes: No Target Renderer assigned.", this);
                 return;
             }
 
             //Push our modified array back to the SkinnedMeshRenderer
             targetRenderer.bones = bonesList;
-            Debug.Log($"Successfully updated bone references on {targetRenderer.name}.", this);
+            Debug.Log($"[SkinnedMeshBoneEditor] Successfully updated bone references on {targetRenderer.name}.", this);
         }
     }
 }

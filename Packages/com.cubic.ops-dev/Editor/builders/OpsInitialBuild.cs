@@ -13,6 +13,11 @@ namespace ops_dev.Editor.Builders {
 
         public bool OnPreprocessAvatar(GameObject avatarGameObject)
         {
+
+            string folderPath = "Packages/com.cubic.ops-dev/Runtime/ops_generated";
+            if (!AssetDatabase.IsValidFolder(folderPath)) AssetDatabase.CreateFolder("Packages/com.cubic.ops-dev/Runtime", "ops_generated");
+
+
             //Makes sure that the ops avatar base component exists / is created.
             //This component contains the materials for clearing the frame buffer, reading the ops grab passes and then clearing the frame buffer again.
             //in vrchat, it is essentially hidden unless the world has no backdrop / background being rendered over it in the render queue
@@ -52,7 +57,7 @@ namespace ops_dev.Editor.Builders {
                     ops_component.grab_ops_id_mat == null || 
                     ops_component.grab_ops_data_mat == null)
                 {
-                    Debug.LogError("Failed trying to load asset");
+                    Debug.LogError("[ops_initial_build] Failed trying to load asset");
                     return false;
                 }
             }
@@ -82,7 +87,7 @@ namespace ops_dev.Editor.Builders {
                 if (avatar_ID_Base.mesh == null || 
                     avatar_ID_Base.material == null)
                 {
-                    Debug.LogError("Failed trying to load asset");
+                    Debug.LogError("[ops_initial_build] Failed trying to load asset");
                     return false;
                 }
                 

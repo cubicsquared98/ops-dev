@@ -1,3 +1,6 @@
+#ifndef OPS_SHADER_PACKING
+#define OPS_SHADER_PACKING
+
 // Packs 32-bit float into a float4
 float4 PackToFloat4(float v)
 {
@@ -63,3 +66,5 @@ uint UnpackFloat4ToUint(float4 color)
 uint4 UnpackFloat4ToUint4(float4 color){
     return uint4(round(color*255.0));
 }
+
+#endif

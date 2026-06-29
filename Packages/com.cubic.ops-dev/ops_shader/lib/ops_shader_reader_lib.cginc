@@ -1,4 +1,6 @@
-//THIS IS A TEST. DO NOT REDISTRIBUTE.
+#ifndef OPS_SHADER_READER
+#define OPS_SHADER_READER
+
 #include "ops_shader_packing_lib.cginc"
 
 // Definitions to declare OPS_TEXTURE for use
@@ -131,3 +133,5 @@ uint4 readInlineUint4Data(uint offset, uint _ID)
         UnpackFloat4ToUint(readDataFrom(float2(offset + 3, _ID)))
     );
 }
+
+#endif

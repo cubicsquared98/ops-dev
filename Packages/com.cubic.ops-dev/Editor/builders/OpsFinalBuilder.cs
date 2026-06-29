@@ -86,8 +86,8 @@ namespace ops_dev.Editor.Builders {
 
         public static bool BuildOpsToggles(GameObject avatarGameObject, OpsAvatarComponent ops_component){
 
-            string savePath = "Packages/com.cubic.ops-dev/Runtime/Ops_Generated";
-            if (!AssetDatabase.IsValidFolder(savePath)) AssetDatabase.CreateFolder("Packages/com.cubic.ops-dev/Runtime", "Ops_Generated");
+            string savePath = "Packages/com.cubic.ops-dev/Runtime/Ops_Generated/FinalGenerated";
+            if (!AssetDatabase.IsValidFolder(savePath)) AssetDatabase.CreateFolder("Packages/com.cubic.ops-dev/Runtime/Ops_Generated", "FinalGenerated");
 
             string baseObjPath = AnimationUtility.CalculateTransformPath(ops_component.gameObject.transform, avatarGameObject.transform);
 

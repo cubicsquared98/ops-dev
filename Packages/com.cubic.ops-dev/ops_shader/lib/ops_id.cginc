@@ -1,4 +1,3 @@
-//THIS IS A TEST. DO NOT REDISTRIBUTE.
 #ifndef _OPS_ID_HASH_TEXTURE_Exists
 
 #define _OPS_ID_HASH_TEXTURE_Exists
@@ -179,4 +178,3 @@ uint getID(float3 position, uint seed, float DistanceToCamera, uint ID_SPACE){
 
 
 #endif
-

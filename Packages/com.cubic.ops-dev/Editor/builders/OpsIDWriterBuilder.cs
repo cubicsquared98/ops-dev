@@ -25,7 +25,7 @@ namespace ops_dev.Editor.Builders {
             //Check if any ops ID writers exist on this avatar
             if (writers.Length == 0) return true;
 
-            string folderPath = "Packages/com.cubic.ops-dev/Runtime/ops_generated";
+            string folderPath = "Packages/com.cubic.ops-dev/Runtime/ops_generated/ops_ID";
             if (!AssetDatabase.IsValidFolder(folderPath)) AssetDatabase.CreateFolder("Packages/com.cubic.ops-dev/Runtime/ops_generated", "ops_ID");
 
             string clipName = $"OpsID_MasterAnim_{avatarGameObject.name}";
@@ -34,11 +34,11 @@ namespace ops_dev.Editor.Builders {
             foreach (OpsIDWriter writer in writers)
             {
                 if (writer.mesh == null || writer.material == null){
-                    Debug.LogError("ID writer is missing material or mesh: " + writer.name + "ON avi: " + avatarGameObject.name);
+                    Debug.LogError("[OpsIDWriterBuilder] ID writer is missing material or mesh: " + writer.name + "ON avi: " + avatarGameObject.name);
                     continue;
                 }
                 if(writer.transform == null){
-                    Debug.LogError("ID writer transform is nul");
+                    Debug.LogError("[OpsIDWriterBuilder] ID writer transform is nul");
                     continue;
                 }
 

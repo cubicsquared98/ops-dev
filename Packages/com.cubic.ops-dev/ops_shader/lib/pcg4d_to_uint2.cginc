@@ -1,3 +1,7 @@
+#ifndef PCD4D_TO_UINT2
+#define PCD4D_TO_UINT2
+
+
 /*
 Copyright 2020 Mark Jarzynski & Marc Olano
 
@@ -27,3 +31,5 @@ uint4 pcg4d_to_uint_2(uint4 v)
 
     return v;
 }
+
+#endif

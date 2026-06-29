@@ -1,4 +1,7 @@
-//THIS IS A TEST. DO NOT REDISTRIBUTE.
+#ifndef OPS_DEFINES
+#define OPS_DEFINES
+
+
 #define offset_Orafice_ID_BitWise_Booleans 0
 //4 uints, uint4(enabled, lightsource_backup, _DISABLE_HOLE_RECURSION, _Orafice_avoid_on_self)
 #define offset_Orafice_world_pos 1
@@ -118,12 +121,8 @@
 #define OPS_hole_alignment_CENTER_ALIGNED 1
 #define OPS_hole_alignment_RADIUS_ALIGNED 2
 
-// #define OPS_sps_compat_TYPE_INVALID 0
-// #define OPS_sps_compat_TYPE_HOLE 1
-// #define OPS_sps_compat_TYPE_RING_TWOWAY 2
-// #define OPS_sps_compat_TYPE_SPSPLUS 3
-// #define OPS_sps_compat_TYPE_RING_ONEWAY 4
-// #define OPS_sps_compat_TYPE_FRONT 5
-
 #define OPS_DISTANCE_ORIGIN 0
 #define OPS_DISTANCE_LENGTH 1
+
+
+#endif

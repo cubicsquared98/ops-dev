@@ -1,12 +1,9 @@
-#include "sps_bezier.cginc"
-#include "sps_light.cginc"
-#include "sps_plus.cginc"
-#include "sps_bake.cginc"
-#include "sps_utils.cginc"
+#include "Packages/com.cubic.ops-dev/ops_shader/lib/ops_shader_defines.cginc"
+#include "Packages/com.cubic.ops-dev/ops_shader/lib/ops_shader_reader_lib.cginc"
+#include "Packages/com.cubic.ops-dev/ops_shader/lib/ops_id.cginc"
 
-#include "../../com.cubic.ops-dev/ops_shader/lib/ops_shader_defines.cginc"
-#include "../../com.cubic.ops-dev/ops_shader/lib/ops_shader_reader_lib.cginc"
-#include "../../com.cubic.ops-dev/ops_shader/lib/ops_id.cginc"
+#include "Packages/com.cubic.ops-dev/ops_shader/lib/ops_orifice_search.cginc"
+#include "Packages/com.cubic.ops-dev/ops_shader/lib/ops_penetrator_search.cginc"
 
 uint _OPS_HASH_SEED;
 uint _OPS_SKINNED_BONES_OFFSET;
@@ -15,6 +12,8 @@ uint _OPS_FROT_MODE;
 int _OPS_PENETRATOR_AVOID_ON_SELF_MASK;
 int _OPS_ID_CHANNEL;
 
+//Maybe add a compile option for this in the shader options
+#define SEARCH_FOR_LIGHTS 0
 
 #define _OPS_MAX_RECURSIVE_OPS 10
 
@@ -28,757 +27,102 @@ bool IsBehind(float3 targetPos, float3 referencePos, float3 normalDir)
 	return d < 0.0;
 }
 
+void SearchLightSourceLights(float3 searchFrom, float search_distance_sq,  inout float3 orificeRootLocal, inout float3 orificeRootNormal, inout float4 ops_orifice_type){
+	int sps_orifice_type = SPS_TYPE_INVALID;
+	sps_light_search(searchFrom, sps_orifice_type, orificeRootLocal, orificeRootNormal);
+	
+	const float3 delta = orificeRootLocal - searchFrom;
+	const float distance_to_sq = dot(delta, delta);
+	if(distance_to_sq > search_distance_sq){
+		ops_orifice_type = float4(
+			OPS_hole_type_INVALID,
+			OPS_hole_entry_direction_INVALID,
+			OPS_hole_alignment_INVALID,
+			0
+		); //Invalid
+	}
+	else if(sps_orifice_type == SPS_TYPE_HOLE){
+		ops_orifice_type = float4(
+			OPS_hole_type_HOLE,
+			OPS_hole_entry_direction_ONE_WAY,
+			OPS_hole_alignment_CENTER_ALIGNED,
+			0
+		);
+	}
+	else if(sps_orifice_type == SPS_TYPE_RING_TWOWAY){
+		ops_orifice_type = float4(
+			OPS_hole_type_RING,
+			OPS_hole_entry_direction_TWO_WAY,
+			OPS_hole_alignment_CENTER_ALIGNED,
+			0
+		);
+	}
+	else if(sps_orifice_type == SPS_TYPE_RING_ONEWAY){
+		ops_orifice_type = float4(
+			OPS_hole_type_RING,
+			OPS_hole_entry_direction_ONE_WAY,
+			OPS_hole_alignment_CENTER_ALIGNED,
+			0
+		);
+	}
+}
 
-//ops shader
-
-//Finds nearby and the closest orifice. Make sure to pass on the found_orifice_id to the next search so that we know if the prev was using ops or not.
-//This should evaluate the exact same across the wavefront, so conditionals should not impact performance, as none of the front will be wasting time.
-void ops_search_all(inout float3 orificeRootLocal, inout float3 orificeRootNormal, inout float3 orificeRootUp,
-	inout int found_orifice_id, inout uint4 orifice_types, inout bool allow_recursion, 
-	inout uint path_count, inout int path_end,
-	inout uint within_range_valueIDs[32], inout uint within_range_index, inout uint within_range_used_values,
-	uint self_avatar_id, int avoid_on_self_mask, int channel_id,
-	float3 searchFrom, float3 searchNormal, float search_to_distance,
-	out bool allowLightSourcesInRecursion
+void ops_search_all_and_lights(inout float3 orificeRootLocal, inout float3 orificeRootNormal, inout float3 orificeRootUp,
+		inout int found_orifice_id, inout uint4 orifice_types, inout bool allow_recursion, 
+		inout uint path_count, inout int path_end,
+		inout uint within_range_valueIDs[32], inout uint within_range_index, inout uint within_range_used_values,
+		uint self_avatar_id, int avoid_on_self_mask, int channel_id,
+		float3 searchFrom, float3 searchNormal, float search_to_distance,
+		out bool allowLightSourcesInRecursion
 ){
-	float3 read_data = readDataFrom_ID_TEX(uint2(0,0)); //Read from the bottom left of the screen. Max ID overlaps occur here, gives the amount of orifices.
+	//Run ops search function
+	ops_search_all(
+		orificeRootLocal, orificeRootNormal, orificeRootUp,
+		found_orifice_id, orifice_types, allow_recursion,
+		path_count, path_end,
+		within_range_valueIDs, within_range_index, within_range_used_values,
+		self_avatar_id, avoid_on_self_mask, channel_id,
+		searchFrom, searchNormal, search_to_distance,
+		allowLightSourcesInRecursion
+	);
 
-	int Total_Ids = min(_OPS_TextureExists() ? round(read_data.r * getMultiplierDecode()): 0, 2000); //If no ops texture, will instantly fallback to sps search
-
-	const uint MaxIndex_31 = 31;
-
-	float Closest_Distance = 1e30;
-	int closest = -1;
-	bool closest_is_behind = false;
-
-	float search_to_distance_sq = search_to_distance*search_to_distance;
-	float overrun_distance_sq = search_to_distance_sq * 0.03125;
-
-	bool Closest_allow_recursion = true;
-	allowLightSourcesInRecursion = false;
-
-	[loop]
-	for(int i = 1; i <= Total_Ids; i++){ //0 cannot be an ID
-		const uint4 Actives = UnpackFloat4ToUint4(readDataFrom(float2(offset_Orafice_ID_BitWise_Booleans, i)));
-		//const float isActive = round(readInlineFloatData(offset_Orafice_ID_BitWise_Booleans, i));
-		//Check if is on the same avatar and set to avoid on self
-		const uint avoid_on_self = Actives.w;// uint(round(readInlineUintData(offset_Orafice_avoid_on_self, i)));
-		const uint avatar_ID = uint(round(readInlineUintData(offset_Orafice_avatar_id, i)));
-		const int avoid_on_self_mask_other = int(round(readInlineFloatData(offset_Orafice_avoid_on_self_mask, i)));
-		const float channel_ID = round(readInlineFloatData(offset_Orafice_channel_id, i));
-
-		if	((Actives.x < 1)
-			|| (channel_id != -1 && channel_id != int(channel_ID))
-			|| (self_avatar_id != 0 && avatar_ID == self_avatar_id && (avoid_on_self == 1 || avoid_on_self_mask == avoid_on_self_mask_other && avoid_on_self_mask != -1)))
-		{
-			continue;
-		}
-
-		//Now check the distance, limiting the max path count
-		const uint PathCount = min(20, uint(readInlineUintData(offset_Orafice_dynamic_Path_Count, i)));
-		const uint4 local_orifice_types = UnpackFloat4ToUint4(readDataFrom(float2(offset_Orafice_ops_type, i)));
-		const int ends = PathCount > 0 && local_orifice_types.y == OPS_hole_entry_direction_TWO_WAY ? 2 : 1;
-		float3 local_pos[2] = {
-			sps_toLocal(readInlineFloat3Data(offset_Orafice_world_pos, i)),
-			float3(0,0,0)
-		};
-		if(ends == 2){
-			local_pos[1] = sps_toLocal(readInlineFloat3Data((PathCount-1) * dynamic_offset_Orafice_Per_Path + Total_Orafice_Written_Values, i));
-		}
-		
-
-
-		bool added_to_array = false;
-		for(int p = 0; p < ends; p++){
-			// const float distance_to = distance(local_pos[p],searchFrom);
-
-			const float3 delta = local_pos[p] - searchFrom;
-			const float distance_to_sq = dot(delta, delta);
-
-			if(distance_to_sq > search_to_distance_sq) continue;
-
-			
-			const bool is_behind = dot(delta, searchNormal) < 0.0;
-			
-			//Check if behind, and check for hole overrun distance (counts as in front if within th hole overrun distance)
-			const float behind = distance_to_sq > overrun_distance_sq && is_behind;
-
-			const bool replace_closest = ((distance_to_sq < Closest_Distance && (!behind || closest_is_behind && behind)) || closest_is_behind && !behind || Closest_Distance > search_to_distance_sq);
-
-			//Final distance checks. If the value is behind, then a value in front takes priority always
-			if(replace_closest){
-				Closest_Distance = distance_to_sq;
-				closest = added_to_array ? within_range_index - 1 : within_range_index;
-				closest_is_behind = behind;
-				orificeRootLocal = local_pos[p];
-				orifice_types = local_orifice_types;
-				path_count = PathCount;
-				path_end = p;
-				Closest_allow_recursion = !bool(Actives.z); //Needs buffering till the actual closest is found, as its an && process for the output
-				allowLightSourcesInRecursion = !bool(Actives.y); //If there is a lightsource backup inside of this ops component, dont allow searching for light sources in the next iterations
-			}
-
-			within_range_valueIDs[within_range_index] = within_range_index == MaxIndex_31 ? i : within_range_valueIDs[within_range_index];
-
-			if(!added_to_array && within_range_index < MaxIndex_31){
-				within_range_valueIDs[within_range_index] = i;
-				within_range_index ++;
-				added_to_array = true;
-			}
-
-		}
-		
-	}
-	[branch]
-	if(closest >= 0){
-		//We now have our selected first orifice. Sets it to used.
-		within_range_used_values |= (1u << closest);
-
-		found_orifice_id = within_range_valueIDs[closest];
-		const uint read_location = (path_count > 0 && path_end == 1) ? (path_count - 1) * dynamic_offset_Orafice_Per_Path + Total_Orafice_Written_Values + dynamic_offset_Orafice_Path_forward_vec_x : offset_Orafice_world_forward_vec;
-		orificeRootNormal = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location, found_orifice_id)));
-		orificeRootUp = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location + 3, found_orifice_id))); //Just add 3
-		allow_recursion = allow_recursion && Closest_allow_recursion;
-		
-	}
-	else{
-		//Backup search for light source using sps logic
-		int sps_orifice_type = SPS_TYPE_INVALID;
-		sps_light_search(searchFrom, sps_orifice_type, orificeRootLocal, orificeRootNormal);
+	if(orifice_types.x == OPS_hole_type_INVALID){
+		SearchLightSourceLights(searchFrom, search_to_distance*search_to_distance, orificeRootLocal, orificeRootNormal, orifice_types);
 		found_orifice_id = -1; //-1 means no ID associated with this orifice
-		const float3 delta = orificeRootLocal - searchFrom;
-		const float distance_to_sq = dot(delta, delta);
-		if(distance_to_sq > search_to_distance_sq){
-			orifice_types = float4(
-				OPS_hole_type_INVALID,
-				OPS_hole_entry_direction_INVALID,
-				OPS_hole_alignment_INVALID,
-				0
-			); //Invalid
-		}
-		else if(sps_orifice_type == SPS_TYPE_HOLE){
-			orifice_types = float4(
-				OPS_hole_type_HOLE,
-				OPS_hole_entry_direction_ONE_WAY,
-				OPS_hole_alignment_CENTER_ALIGNED,
-				0
-			);
-		}
-		else if(sps_orifice_type == SPS_TYPE_RING_TWOWAY){
-			orifice_types = float4(
-				OPS_hole_type_RING,
-				OPS_hole_entry_direction_TWO_WAY,
-				OPS_hole_alignment_CENTER_ALIGNED,
-				0
-			);
-		}
-		else if(sps_orifice_type == SPS_TYPE_RING_ONEWAY){
-			orifice_types = float4(
-				OPS_hole_type_RING,
-				OPS_hole_entry_direction_ONE_WAY,
-				OPS_hole_alignment_CENTER_ALIGNED,
-				0
-			);
-		}
 		path_count = 0;
 		path_end = 0;
 	}
 }
 
-//Requires the first search function to have located close by values already
-void ops_search_within_found_range(inout float3 orificeRootLocal, inout float3 orificeRootNormal, inout float3 orificeRootUp,
+void ops_search_within_found_range_with_lights(inout float3 orificeRootLocal, inout float3 orificeRootNormal, inout float3 orificeRootUp,
 	inout int found_orifice_id, inout uint4 orifice_types, inout bool allow_recursion, 
 	inout uint path_count, inout int path_end,
 	uint within_range_valueIDs[32], uint within_range_index, inout uint within_range_used_values,
 	float3 searchFrom, float3 searchNormal, float search_to_distance,
 	inout bool allowLightSourcesInRecursion
 ){
-	//within_range_index has a max value of 31
-	int Total_Ids = _OPS_TextureExists() ? within_range_index : 0; //If no ops, fallback to sps
 
-	const uint MaxIndex_31 = 31;
-
-	float Closest_Distance = 1e30;
-	int closest = -1;
-	bool closest_is_behind = false;
-
-	float search_to_distance_sq = search_to_distance*search_to_distance;
-	float overrun_distance_sq = search_to_distance_sq * 0.03125;
-
-	for(int i = 0; i < Total_Ids; i++){
-
-		//Check if this orifice has already been penetrated
-		if ((within_range_used_values & (1u << i)) != 0) continue;
-
-		const int Search_Orafice_ID = within_range_valueIDs[i];
-
-		//Now check the distance (incl paths data)
-		const uint PathCount = uint(readInlineUintData(offset_Orafice_dynamic_Path_Count, Search_Orafice_ID));
-		const uint4 local_orifice_types = UnpackFloat4ToUint4(readDataFrom(float2(offset_Orafice_ops_type, Search_Orafice_ID)));
-		const int ends = PathCount > 0 && local_orifice_types.y == OPS_hole_entry_direction_TWO_WAY ? 2 : 1;
-		float3 local_pos[2] = {
-			sps_toLocal(readInlineFloat3Data(offset_Orafice_world_pos, Search_Orafice_ID)),
-			float3(0,0,0)
-		};
-		if(ends == 2){
-			local_pos[1] = sps_toLocal(readInlineFloat3Data((PathCount-1) * dynamic_offset_Orafice_Per_Path + Total_Orafice_Written_Values, Search_Orafice_ID));
-		}
-
-		for(int p = 0; p < ends; p++){
-			// const float distance_to = distance(local_pos[p],searchFrom);
-
-			const float3 delta = local_pos[p] - searchFrom;
-			const float distance_to_sq = dot(delta, delta);
-
-			if(distance_to_sq > search_to_distance_sq) continue;
-
-			const bool is_behind = dot(delta, searchNormal) < 0.0;
-
-			//Distance may have changed now that we are searching from a new position
-
-			//Check if behind, and check for hole overrun distance (counts as in front if within th hole overrun distance)
-			const float behind = distance_to_sq > overrun_distance_sq && is_behind; //search_to_distance*0.03125 is search_to_distance/1.6*0.05
-			const bool replace_closest = ((distance_to_sq < Closest_Distance && (!behind || closest_is_behind && behind)) || closest_is_behind && !behind || Closest_Distance > search_to_distance_sq);
-			//Final distance checks. If the value is behind, then a value in front takes priority always
-			if(replace_closest){
-				Closest_Distance = distance_to_sq;
-				closest = i;
-				closest_is_behind = behind;
-				orificeRootLocal = local_pos[p];
-				orifice_types = local_orifice_types;
-				path_count = PathCount;
-				path_end = p;
-			}
-		}
-	}
-	[branch]
-	if(closest >= 0){
-		//We now have our selected orifice. Sets it as used.
-		within_range_used_values |= (1u << closest);
-
-		found_orifice_id = within_range_valueIDs[closest];
-		const uint read_location = (path_count > 0 && path_end == 1) ? (path_count - 1) * dynamic_offset_Orafice_Per_Path + Total_Orafice_Written_Values + dynamic_offset_Orafice_Path_forward_vec_x : offset_Orafice_world_forward_vec;
-		orificeRootNormal = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location, found_orifice_id)));
-		orificeRootUp = UnityWorldToObjectDir(sps_normalize(readInlineFloat3Data(read_location + 3, found_orifice_id))); //Just add 3
-		uint4 actives = UnpackFloat4ToUint4(readDataFrom(float2(offset_Orafice_ID_BitWise_Booleans, i)));
-		allow_recursion = allow_recursion && !bool(actives.z);
-		allowLightSourcesInRecursion = allowLightSourcesInRecursion && !bool(actives.x);
-
-		//allow_recursion = allow_recursion && (readInlineUintData(offset_Orafice_ops_disable_recursion, found_orifice_id) < 0.5);
-		
-	}
+	//Searches the up to 32 found orifices for the next closest orifice
+	ops_search_within_found_range(
+		orificeRootLocal, orificeRootNormal, orificeRootUp,
+		found_orifice_id, orifice_types, allow_recursion,
+		path_count, path_end,
+		within_range_valueIDs, within_range_index, within_range_used_values,
+		searchFrom, searchNormal, search_to_distance,
+		allowLightSourcesInRecursion
+	);
+	
 	//Small check to make sure that the previous orifice found has an ID meaning it is an ops orifice not a dps/sps only orifice
-	//[branch] should not be needed here
-	else if (found_orifice_id != -1 && allowLightSourcesInRecursion){
-		//Backup search for light source using sps logic
-		int sps_orifice_type = SPS_TYPE_INVALID;
-		sps_light_search(searchFrom, sps_orifice_type, orificeRootLocal, orificeRootNormal);
+	//Checks if no ops component was found, that the previous found hole had an OPS ID, and that light sources are allowed in recursion
+	[branch]
+	if (orifice_types.x == OPS_hole_type_INVALID && found_orifice_id != -1 && allowLightSourcesInRecursion){
+		SearchLightSourceLights(searchFrom, search_to_distance*search_to_distance, orificeRootLocal, orificeRootNormal, orifice_types);
 		found_orifice_id = -1; //-1 means no ID associated with this orifice
-		const float3 delta = orificeRootLocal - searchFrom;
-		const float distance_to_sq = dot(delta, delta);
-		if(distance_to_sq > search_to_distance_sq){
-			orifice_types = float4(
-				OPS_hole_type_INVALID,
-				OPS_hole_entry_direction_INVALID,
-				OPS_hole_alignment_INVALID,
-				0
-			); //Invalid
-		}
-		else if(sps_orifice_type == SPS_TYPE_HOLE){
-			orifice_types = float4(
-				OPS_hole_type_HOLE,
-				OPS_hole_entry_direction_ONE_WAY,
-				OPS_hole_alignment_CENTER_ALIGNED,
-				0
-			);
-		}
-		else if(sps_orifice_type == SPS_TYPE_RING_TWOWAY){
-			orifice_types = float4(
-				OPS_hole_type_RING,
-				OPS_hole_entry_direction_TWO_WAY,
-				OPS_hole_alignment_CENTER_ALIGNED,
-				0
-			);
-		}
-		else if(sps_orifice_type == SPS_TYPE_RING_ONEWAY){
-			orifice_types = float4(
-				OPS_hole_type_RING,
-				OPS_hole_entry_direction_ONE_WAY,
-				OPS_hole_alignment_CENTER_ALIGNED,
-				0
-			);
-		}
 		path_count = 0;
 		path_end = 0;
 	}
 }
 
-//Function finds first __max_frot_count_find penetrators within the search_to_max_distance, and checks if they have frot mode enabled
-//Does not think about distances
-void ops_pen_search(
-	float3 search_from_point, float3 search_normal, float search_radius, float search_to_max_distance, float search_penetrator_length,
-	uint self_ID, uint self_avatar_ID, int avoid_on_self_mask, int channel_id,
-	float half_screen, float overlap_percent,
-	out float3 use_position, out float3 use_normal, out bool frot_found
-){
-	#define __max_frot_count 5
-	#define __max_frot_count_find (__max_frot_count - 1)
-	#define TWO_PI 6.28318530718f
-	// 1.0/TWO_PI
-    #define INV_TWO_PI 0.159154943f
-
-
-	//read from bottom screen for Max ID overlaps of penetrators
-	uint4 ID_space = getIDSpace(ID_SPACE_PENETRATOR);
-
-	float3 read_data = readDataFrom_ID_TEX(ID_space.zw);
-
-	int Total_Ids = min(_OPS_TextureExists() ? round(read_data.r * getMultiplierDecode()): 0, 2000); //If no ops texture, will instantly fallback to sps search
-
-
-	//If the only penetrator
-	//if (Total_Ids <= 1) return;
-
-	float search_to_distance_sq = search_to_max_distance*search_to_max_distance;
-	
-	float4 found_other_data[__max_frot_count];
-	float3 averageDirection = search_normal;//found_other_normals[0];
-	float3 sum_positions = search_from_point;
-
-	
-	uint found_count = 0;
-	//Simply check the first 5. Ignore any extras
-
-	[loop]
-	for(int i = 1; i <= Total_Ids; i++){ //0 cannot be an ID
-		if(i == self_ID) continue;
-
-		const float isActive = round(readInlineFloatData(half_screen + offset_penetrator_is_active, i));
-		if(isActive < 1) continue;
-
-		const uint isFrotMode = readInlineUintData(half_screen + offset_penetrator_frot_mode, i);
-		if(isFrotMode == 0) continue;
-
-		const float channel_ID = round(readInlineFloatData(half_screen + offset_penetrator_channel_id, i));
-		if(channel_id != -1 && channel_id != int(channel_ID)) continue;
-
-		//Check if is on the same avatar and set to avoid on self
-		const uint avatar_ID = uint(readInlineUintData(half_screen + offset_penetrator_avatar_id, i));
-		const int avoid_on_self_mask_other = int(round(readInlineFloatData(half_screen + offset_penetrator_avoid_on_self_mask, i)));
-
-		if(self_avatar_ID != 0 && avatar_ID == self_avatar_ID && (avoid_on_self_mask == avoid_on_self_mask_other && avoid_on_self_mask != -1)) continue;
-
-		float3 other_deform_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_deform_start_point_x, i));
-		float3 end_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_end_point_x, i));
-
-		// Check distance from center, because we are allowing entry from both sides (not any more but keep logic like this)
-        float3 self_center = search_from_point + (search_normal * (search_penetrator_length * 0.5));
-        float3 other_center = (other_deform_point + end_point) * 0.5;
-
-		
-		const float3 delta = other_center - self_center;
-		const float distance_to_sq = dot(delta, delta);
-
-		const float3 delta_other = (other_deform_point - end_point)*1.6;
-		const float other_search_length_square = dot(delta_other, delta_other);
-
-		//We search to make sure we are within the distance for *both* penetrators.
-		if(distance_to_sq > min(search_to_distance_sq, other_search_length_square)) continue;
-
-
-		float3 radius_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_radius_up_point_x, i));
-		float3 other_start_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_start_point_x, i));
-
-		float3 normal = sps_normalize(end_point - other_deform_point);
-		float radius = distance(other_start_point, radius_point);
-
-
-		//If within the search range, we will count it
-		found_other_data[found_count].xyz = other_deform_point;
-		averageDirection += normal;
-		found_other_data[found_count].w = radius;
-		sum_positions += other_deform_point;
-
-		found_count++;
-		if(found_count >= __max_frot_count_find) break;
-	}
-	[branch]
-	if(found_count == 0){
-		// Initialize outputs to defaults
-		frot_found = false;
-		use_position = float3(0, 0, 0);
-		use_normal = float3(0, 0, 0);
-		return;
-	}
-
-	averageDirection = normalize(averageDirection);
-
-	found_other_data[found_count].xyz = search_from_point;
-	found_other_data[found_count].w = search_radius;
-	found_count ++;
-
-	float3 averageCenter = sum_positions / (float)found_count;
-
-	// Determine the furthest ahead position along the new normal
-	float maxProj = dot(found_other_data[0].xyz, averageDirection);
-	[unroll]
-	for (uint m_idx = 1; m_idx < __max_frot_count; m_idx++) {
-		if (m_idx < found_count) {
-			float proj = dot(found_other_data[m_idx].xyz, averageDirection);
-			maxProj = max(maxProj, proj);
-		}
-	}
-
-	//Shift the penetration point
-	float centerProj = dot(averageCenter, averageDirection);
-	float3 forwardShift = ((maxProj - centerProj) * averageDirection) + (search_penetrator_length * 0.25 * averageDirection);
-	averageCenter += forwardShift;
-
-	//Define 2D Plane Basis (Right / Forward)
-	float3 upVec = abs(averageDirection.y) > 0.99f ? float3(1, 0, 0) : float3(0, 1, 0);
-	float3 right = normalize(cross(upVec, averageDirection));
-	float3 forward = normalize(cross(averageDirection, right));
-
-
-	// Project to 2D Plane & Calculate Angles
-	float angles[__max_frot_count];
-
-	[unroll]
-    for (uint j = 0; j < __max_frot_count; j++) {
-        if(j < found_count) {
-            float3 delta = found_other_data[j].xyz - averageCenter;
-            angles[j] = atan2(dot(delta, forward), dot(delta, right)); //Y and X 
-        } else {
-            angles[j] = 999.0f; //End up sorted into the last place, over the angle limit for a full circle so will always be sorted into last
-        }
-    }
-
-    
-
-	//Track which index is our penetrator
-	uint my_index = found_count - 1;
-
-	#define SORT_SWAP(i, j) \
-    if(angles[i] > angles[j]) { \
-        if (my_index == i) my_index = j; \
-        else if (my_index == j) my_index = i; \
-        /* Swap Angles */ \
-        float temp_ang = angles[i]; \
-        angles[i] = angles[j]; \
-        angles[j] = temp_ang; \
-        /* Swap other penetrator data */ \
-        float4 temp_data = found_other_data[i]; \
-        found_other_data[i] = found_other_data[j]; \
-        found_other_data[j] = temp_data; \
-    }
-	//static swaps to sort the 5 items instead of looping
-	SORT_SWAP(0, 1); SORT_SWAP(3, 4);
-    SORT_SWAP(2, 4); SORT_SWAP(2, 3);
-    SORT_SWAP(0, 3); SORT_SWAP(0, 2);
-    SORT_SWAP(1, 4); SORT_SWAP(1, 3); SORT_SWAP(1, 2);
-    #undef SORT_SWAP
-
-	//sums up the radius's, with the overlap
-	float d[__max_frot_count];
-	float sumD = 0;
-
-	[unroll]
-    for (uint m = 0; m < __max_frot_count; m++) {
-        if(m < found_count) {
-            float r1 = found_other_data[m].w;
-            uint next_idx = (m + 1 == found_count) ? 0 : m + 1; 
-            float r2 = found_other_data[next_idx].w;
-            d[m] = r1 + r2 - (overlap_percent * min(r1, r2));
-            sumD += d[m];
-        }
-    }
-
-	//Calculate Radius and Target Angles
-	float R = sumD * INV_TWO_PI;
-	float thetas[__max_frot_count];
-	thetas[0] = 0;
-	
-	[unroll]
-	for (uint n = 0; n < __max_frot_count - 1; n++) {
-		if(n < found_count - 1) {
-            thetas[n + 1] = thetas[n] + (d[n] / sumD) * TWO_PI;
-        }
-	}
-
-
-	// Calculate Optimal Rotation, average difference from re-calculated angles
-	float sumCos = 0;
-	float sumSin = 0;
-	[unroll]
-	for (uint p = 0; p < __max_frot_count; p++) {
-		if(p < found_count) {
-            float diff = angles[p] - thetas[p];
-            sumCos += cos(diff);
-            sumSin += sin(diff);
-        }
-	}
-	float optRot = atan2(sumSin, sumCos);
-
-
-	//Find this specific vertex's penetrator in the sorted data
-	float finalAngle = thetas[my_index] + optRot;
-
-	float localX = R * cos(finalAngle);
-	float localY = R * sin(finalAngle);
-	use_position = averageCenter + (localX * right) + (localY * forward);
-	use_normal = averageDirection;
-	frot_found = true;
-}
-
-
-void ops_frot_gather(
-    float3 search_from_point, float3 search_normal, float search_radius, float search_to_max_distance, float search_penetrator_length,
-    uint self_ID, uint self_avatar_ID, int avoid_on_self_mask, int channel_id, float half_screen,
-    out uint found_count, out float4 found_other_data[5], 
-    out float3 group_average_normal, out float3 group_max_proj_point, out float group_length
-) {
-
-	found_count = 0;
-    float3 sum_positions = search_from_point;
-	float3 sum_end_positions = search_from_point + (search_normal * search_penetrator_length);
-    float3 averageDirection = search_normal;
-    group_length = search_penetrator_length;
-
-	float sum_weights = 1.0;
-
-	
-	uint4 ID_space = getIDSpace(ID_SPACE_PENETRATOR);
-    float3 read_data = readDataFrom_ID_TEX(ID_space.zw);
-    int Total_Ids = min(_OPS_TextureExists() ? round(read_data.r * getMultiplierDecode()) : 0, 2000);
-
-    float search_to_distance_sq = search_to_max_distance * search_to_max_distance;
-
-	//end pos xyz, weighting w
-	float4 found_end_points[5];
-
-	[loop]
-    for(int i = 1; i <= Total_Ids; i++){
-        if(i == self_ID) continue;
-
-        const float isActive = round(readInlineFloatData(half_screen + offset_penetrator_is_active, i));
-        if(isActive < 1) continue;
-
-        const uint isFrotMode = readInlineUintData(half_screen + offset_penetrator_frot_mode, i);
-        if(isFrotMode == 0) continue;
-
-        const float channel_ID = round(readInlineFloatData(half_screen + offset_penetrator_channel_id, i));
-        if(channel_id != -1 && channel_id != int(channel_ID)) continue;
-
-        const uint avatar_ID = uint(readInlineUintData(half_screen + offset_penetrator_avatar_id, i));
-        const int avoid_on_self_mask_other = int(round(readInlineFloatData(half_screen + offset_penetrator_avoid_on_self_mask, i)));
-
-        if(self_avatar_ID != 0 && avatar_ID == self_avatar_ID && (avoid_on_self_mask == avoid_on_self_mask_other && avoid_on_self_mask != -1)) continue;
-
-        float3 other_deform_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_deform_start_point_x, i));
-        float3 end_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_end_point_x, i));
-
-        float3 self_center = search_from_point + (search_normal * (search_penetrator_length * 0.5));
-        float3 other_center = (other_deform_point + end_point) * 0.5;
-
-        const float3 delta = other_center - self_center;
-        const float distance_to_sq = dot(delta, delta);
-
-        const float3 delta_other = (other_deform_point - end_point) * 1.6;
-        const float other_search_length_square = dot(delta_other, delta_other);
-		float actual_cutoff_sq = min(search_to_distance_sq, other_search_length_square);
-
-        if(distance_to_sq > actual_cutoff_sq) continue;
-
-		//distance fading
-        float actual_cutoff = sqrt(actual_cutoff_sq);
-        float fade_start = actual_cutoff * 0.6; //Starts fading at 60% of max range
-        float fade_end = actual_cutoff;
-        float dist_to_other = sqrt(distance_to_sq);
-
-		float weight = 1.0 - sps_saturated_map(dist_to_other, fade_start, fade_end);
-        if (weight <= 0.0) continue; //Skip if weight evaluates to 0
-		
-		
-		float3 radius_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_radius_up_point_x, i));
-        float3 other_start_point = sps_toLocal(readInlineFloat3Data(half_screen + offset_penetrator_world_start_point_x, i));
-        float radius = distance(other_start_point, radius_point);
-
-        float3 normal = sps_normalize(end_point - other_deform_point);
-
-        found_other_data[found_count].xyz = other_deform_point;
-        found_other_data[found_count].w = radius * weight;
-		found_end_points[found_count].xyz = end_point;
-		found_end_points[found_count].w = weight;
-
-        averageDirection += normal * weight;
-        sum_positions += other_deform_point * weight;
-		sum_end_positions += end_point * weight;
-		sum_weights += weight;
-
-        found_count++;
-        if(found_count >= 4) break;
-    }
-
-	[branch]
-    if(found_count > 0) {
-        averageDirection = normalize(averageDirection);
-		//Add our penetrator to the found data
-        found_other_data[found_count].xyz = search_from_point;
-        found_other_data[found_count].w = search_radius;
-		found_end_points[found_count].xyz = search_from_point + (search_normal * search_penetrator_length);
-        found_end_points[found_count].w = 1.0;
-		found_count++;
-
-        float3 group_average_center = sum_positions / sum_weights;
-		float3 group_average_end_center = sum_end_positions / sum_weights;
-        group_average_normal = averageDirection;
-
-        // Find the furthest projected point along the new normal (NO forward shift yet)
-		
-		float centerProj = dot(group_average_center, averageDirection);
-		float centerEndProj = dot(group_average_end_center, averageDirection);
-
-        float maxProj = centerProj;
-		float maxEndProj = centerEndProj;
-
-        [unroll]
-        for (uint m_idx = 0; m_idx < 5; m_idx++) {
-            if (m_idx < found_count) {
-				float weight = found_end_points[m_idx].w;
-
-				float rawProj = dot(found_other_data[m_idx].xyz, averageDirection);
-                float rawEndProj = dot(found_end_points[m_idx].xyz, averageDirection);
-
-				//Lerp each check, so that is all smooth
-
-				float effectiveProj = lerp(centerProj, rawProj, weight);
-                float effectiveEndProj = lerp(centerEndProj, rawEndProj, weight);
-                
-                maxProj = max(maxProj, effectiveProj);
-                maxEndProj = max(maxEndProj, effectiveEndProj);
-            }
-        }
-		group_max_proj_point = group_average_center + ((maxProj - centerProj) * averageDirection);
-        group_length = max(0.0, maxEndProj - maxProj);
-    } else {
-        //Default to penetrator search values
-        group_average_normal = search_normal;
-        group_max_proj_point = search_from_point;
-    }
-}
-
-void ops_frot_apply(
-    uint found_count, inout float4 found_other_data[5], inout float3 group_average_projected_center, inout float3 group_average_normal, 
-    float group_length, float search_penetrator_length, float overlap_percent,
-    int found_orifice_id, float3 orifice_pos, float3 orifice_normal, uint orifice_direction,
-	out float3 frot_offset, out float new_radius, out float lerp_factor
-) {
-	#define TWO_PI 6.28318530718f
-    #define INV_TWO_PI 0.159154943f
-
-	lerp_factor = 0.0;
-
-	float3 forwardShift = (search_penetrator_length * 0.25 * group_average_normal);
-	group_average_projected_center + forwardShift;
-    if (found_orifice_id != -1) {
-        float dist_to_hole = distance(group_average_projected_center, orifice_pos);
-        // Blend boundaries based on the longest penetrator in the group
-		//Uhh idk what went wrong with the maths here, but this works. needs looking into some more
-        float blend_start = group_length * 1.6;
-        float blend_end = group_length * 1.35; //Really this should just be 1.0, but thats like 50% down the frot group
-        lerp_factor = 1.0 - sps_saturated_map(dist_to_hole, blend_end, blend_start);
-
-        group_average_projected_center = lerp(group_average_projected_center, orifice_pos, lerp_factor);
-        
-		//for reverse holes
-		float3 target_normal = -orifice_normal;
-        if (dot(group_average_normal, target_normal) < 0.0 && orifice_direction == OPS_hole_entry_direction_TWO_WAY) {
-            target_normal = -target_normal; 
-        }
-		group_average_normal = normalize(lerp(group_average_normal, target_normal, lerp_factor));
-    } else {
-		//group_average_projected_center += forwardShift;
-    }
-
-	//2D Plane Projection at the orifice for organising where penetrators go
-    float3 upVec = abs(group_average_normal.y) > 0.99f ? float3(1, 0, 0) : float3(0, 1, 0);
-    float3 right = normalize(cross(upVec, group_average_normal));
-    float3 forward = normalize(cross(group_average_normal, right));
-
-    float angles[5];
-    [unroll]
-    for (uint j = 0; j < 5; j++) {
-        if(j < found_count) {
-            float3 delta = found_other_data[j].xyz - group_average_projected_center;
-            angles[j] = atan2(dot(delta, forward), dot(delta, right));
-        } else {
-            angles[j] = 999.0f;
-        }
-    }
-
-	uint my_index = found_count - 1;
-
-	//Sort the orifices by angle
-    #define SORT_SWAP(i, j) \
-    if(angles[i] > angles[j]) { \
-        if (my_index == i) my_index = j; \
-        else if (my_index == j) my_index = i; \
-        float temp_ang = angles[i]; \
-		angles[i] = angles[j]; \
-		angles[j] = temp_ang; \
-        float4 temp_data = found_other_data[i]; \
-		found_other_data[i] = found_other_data[j]; \
-		found_other_data[j] = temp_data; \
-    }
-    SORT_SWAP(0, 1); SORT_SWAP(3, 4);
-    SORT_SWAP(2, 4); SORT_SWAP(2, 3);
-    SORT_SWAP(0, 3); SORT_SWAP(0, 2);
-    SORT_SWAP(1, 4); SORT_SWAP(1, 3); SORT_SWAP(1, 2);
-    #undef SORT_SWAP
-
-	// 3. Spacing Math
-    float d[5];
-    float sumD = 0;
-
-    [unroll]
-    for (uint m = 0; m < 5; m++) {
-        if(m < found_count) {
-            float r1 = found_other_data[m].w;
-            uint next_idx = (m + 1 == found_count) ? 0 : m + 1; 
-            float r2 = found_other_data[next_idx].w;
-            d[m] = r1 + r2 - (overlap_percent * min(r1, r2));
-            sumD += d[m];
-        }
-    }
-
-    new_radius = sumD * INV_TWO_PI;
-    float thetas[5];
-    thetas[0] = 0;
-    [unroll]
-    for (uint n = 0; n < 4; n++) {
-        if(n < found_count - 1) {
-            thetas[n + 1] = thetas[n] + (d[n] / sumD) * TWO_PI;
-        }
-    }
-
-    float sumCos = 0; float sumSin = 0;
-    [unroll]
-    for (uint p = 0; p < 5; p++) {
-        if(p < found_count) {
-            float diff = angles[p] - thetas[p];
-            sumCos += cos(diff);
-			sumSin += sin(diff);
-        }
-    }
-    float optRot = atan2(sumSin, sumCos);
-
-    float finalAngle = thetas[my_index] + optRot;
-    float localX = new_radius * cos(finalAngle);
-    float localY = new_radius * sin(finalAngle);
-
-	//The 3D offset from the group_average_projected_center to this penetrator
-	frot_offset = (localX * right) + (localY * forward);
-}
 
 void calculate_lerps(inout float bezierLerp, inout float dumbLerp,
 	float entranceAngle, float exitAngle, float active,
@@ -1071,7 +415,7 @@ void ops_apply(
 
 	uint frot_found_count = 0;
     float4 frot_found_data[5];
-    float3 frot_group_center, frot_group_normal, frot_max_proj_point;
+    float3 frot_group_normal, frot_max_proj_point;
     float frot_group_length;
 
 
@@ -1094,7 +438,8 @@ void ops_apply(
     }
 
 	//Perform orifice search
-    ops_search_all(orificeRootLocal, orificeRootNormal, orificeRootUp,
+#ifdef SEARCH_FOR_LIGHTS
+    ops_search_all_and_lights(orificeRootLocal, orificeRootNormal, orificeRootUp,
         found_orifice_id, searching_orifice_type, allow_recursion,
         path_count, path_end,
         within_range_valueIDs, within_range_index, within_range_used_values,
@@ -1102,6 +447,16 @@ void ops_apply(
         searchFrom, search_normal, search_to_distance,
         allowLightSourcesInRecursion
     );
+#else
+    ops_search_all_and_lights(orificeRootLocal, orificeRootNormal, orificeRootUp,
+        found_orifice_id, searching_orifice_type, allow_recursion,
+        path_count, path_end,
+        within_range_valueIDs, within_range_index, within_range_used_values,
+        self_avatar_id, avoid_on_self_mask, channel_id,
+        searchFrom, search_normal, search_to_distance,
+        allowLightSourcesInRecursion
+    );
+#endif
 
 
 	float3 frot_offset = float3(0,0,0);
@@ -1149,6 +504,16 @@ void ops_apply(
 			if(!allow_recursion){
 				break;
 			}
+#ifdef SEARCH_FOR_LIGHTS
+			ops_search_within_found_range_with_lights(
+				orificeRootLocal, orificeRootNormal, orificeRootUp,
+				found_orifice_id, searching_orifice_type, allow_recursion,
+				path_count, path_end,
+				within_range_valueIDs, within_range_index, within_range_used_values,
+				searchFrom, search_normal, search_to_distance,
+				allowLightSourcesInRecursion
+			);
+#else
 			ops_search_within_found_range(
 				orificeRootLocal, orificeRootNormal, orificeRootUp,
 				found_orifice_id, searching_orifice_type, allow_recursion,
@@ -1157,6 +522,7 @@ void ops_apply(
 				searchFrom, search_normal, search_to_distance,
 				allowLightSourcesInRecursion
 			);
+#endif
 		}
 
 		if(searching_orifice_type.y == OPS_hole_type_INVALID){
@@ -1474,27 +840,4 @@ void ops_apply(
 
 
 	*/
-}
-
-
-void sps_apply(inout SpsInputs o) {
-
-	// When VERTEXLIGHT_ON is missing, there are no lights nearby, and the 4light arrays will be full of junk
-	// Temporarily disable this check since apparently it causes some passes to not apply SPS
-	//#ifdef VERTEXLIGHT_ON
-
-
-	ops_apply(
-		o.SPS_STRUCT_POSITION_NAME,
-		o.SPS_STRUCT_NORMAL_NAME,
-		o.SPS_STRUCT_TANGENT_NAME,
-		o.SPS_STRUCT_SV_VertexID_NAME,
-		o.SPS_STRUCT_COLOR_NAME,
-		o.SPS_STRUCT_BLENDINDICES_NAME,
-		o.SPS_STRUCT_BLENDWEIGHTS_NAME
-	);
-
-
-	//#endif
-
 }

@@ -1,3 +1,6 @@
+#ifndef OPS_ID_UTILS
+#define OPS_ID_UTILS
+
 //THIS IS A TEST. DO NOT REDISTRIBUTE.
 #include "pcg4d_to_uint2.cginc"
 
@@ -76,3 +79,5 @@ float getMultiplierDecode(){
         return 255.0;
     #endif
 }
+
+#endif
